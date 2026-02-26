@@ -26,14 +26,27 @@ tasks:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run
   
+  lint:fix:
+    desc: Run base linters and fix issues for all packages
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run --fix
+  
   test:
     desc: Run tests for all packages
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go test ./... {{.CLI_ARGS}}
+        cmd: cd {{.ITEM}} && go test ./...
 
   tidy:
     desc: Run `go mod tidy` for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && go mod tidy
+  
+  build:
+    desc: Run `go build ./...` for all packages
+    cmds:
+      - cmd: rm -rf ./bin && mkdir ./bin
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && go build -o ../bin ./...
