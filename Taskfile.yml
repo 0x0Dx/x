@@ -47,6 +47,6 @@ tasks:
   build:
     desc: Run `go build ./...` for all packages
     cmds:
-      - cmd: rm -rf ./_bin && mkdir ./_bin
+      - cmd: rm -rf ./bin && mkdir ./bin
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go build -o ../_bin ./...
+        cmd: cd {{.ITEM}} && go build -o ../bin ./...
