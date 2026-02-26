@@ -82,30 +82,18 @@ func (p DiscordProvider) ChangeAvatar(imageData []byte, format string, token str
 		return fmt.Errorf("token is required for Discord. Set AVATAR_TOKEN or use -t")
 	}
 
-	imgFormat := formatToDiscord(format)
+	encoded := base64.StdEncoding.EncodeToString(imageData)
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("avatar", "avatar."+imgFormat)
-	if err != nil {
-		return fmt.Errorf("failed to create form file: %w", err)
-	}
-	if _, err := part.Write(imageData); err != nil {
-		return fmt.Errorf("failed to write avatar data: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close writer: %w", err)
-	}
-
+	jsonBody := fmt.Sprintf(`{"avatar":"data:image/%s;base64,%s"}`, formatToDiscord(format), encoded)
 	ctx, cancel := context.WithTimeout(context.Background(), 30e9)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "PATCH", "https://discord.com/api/v10/users/@me", body)
+	req, err := http.NewRequestWithContext(ctx, "PATCH", "https://discord.com/api/v10/users/@me", bytes.NewBufferString(jsonBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", token)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", "application/json")
 
 	//nolint:gosec // G704: URL is hardcoded, not user-controlled
 	resp, err := http.DefaultClient.Do(req)
