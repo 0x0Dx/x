@@ -200,6 +200,8 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 
 	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Origin", "https://steamcommunity.com")
+	req.Header.Set("Referer", "https://steamcommunity.com/my/edit")
 
 	//nolint:gosec // G704: URL is hardcoded with steamID from user cookie
 	resp, err := http.DefaultClient.Do(req)
@@ -212,9 +214,14 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 		}
 	}()
 
+	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("steam API error: %s", string(respBody))
+		return fmt.Errorf("steam API error (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	// Steam returns success as "OK" or the avatar URL
+	if len(respBody) > 0 && !bytes.Contains(respBody, []byte("success")) && !bytes.Contains(respBody, []byte("OK")) {
+		return fmt.Errorf("steam API returned unexpected response: %s", string(respBody))
 	}
 
 	return nil
