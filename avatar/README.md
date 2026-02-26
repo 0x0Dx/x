@@ -16,7 +16,7 @@ avatar -p <provider> -i <image> -t <token>
 
 ### Options
 
-- `-p, --provider` - Service provider: `github`, `discord`, `steam`
+- `-p, --provider` - Service provider: `github`, `steam`
 - `-i, --image` - Path to image file or URL
 - `-t, --token` - API token (optional, can use `AVATAR_TOKEN` env var)
 - `-d, --debug` - Enable debug output
@@ -26,9 +26,6 @@ avatar -p <provider> -i <image> -t <token>
 ```bash
 # GitHub (requires personal access token with user scope)
 avatar -p github -i avatar.png -t ghp_xxxxxxxxxxxx
-
-# Discord (requires user token - get from browser devtools)
-avatar -p discord -i avatar.png -t MzIxxxxxxxx
 
 # Steam (requires cookies from browser)
 avatar -p steam -i avatar.png -t "sessionid_value;steamLoginSecure_value"
@@ -44,7 +41,6 @@ avatar -p github -i avatar.png
 ## Providers
 
 - **GitHub**: Uses GitHub REST API (requires `user` scope)
-- **Discord**: Uses Discord API with user token
 - **Steam**: Uses Steam web upload (requires session cookies from browser)
 
 ## Getting Tokens
@@ -55,15 +51,6 @@ avatar -p github -i avatar.png
 2. Click "Generate new token (classic)"
 3. Select scope: `user` (full control of user account)
 4. Copy the token
-
-### Discord
-
-1. Open Discord in browser (not app)
-2. Press F12 to open Developer Tools
-3. Go to Network tab
-4. Click any request to your user ID (like `/api/v9/users/@me`)
-5. Look in "Request Headers" > "Authorization"
-6. Copy the token (starts with `Mzi` or `ODY`)
 
 ### Steam
 

@@ -73,47 +73,6 @@ func (p GitHubProvider) ChangeAvatar(imageData []byte, _ string, token string) e
 	return nil
 }
 
-type DiscordProvider struct{}
-
-func (p DiscordProvider) Name() string { return "discord" }
-
-func (p DiscordProvider) ChangeAvatar(imageData []byte, format string, token string) error {
-	if token == "" {
-		return fmt.Errorf("token is required for Discord. Set AVATAR_TOKEN or use -t")
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(imageData)
-
-	jsonBody := fmt.Sprintf(`{"avatar":"data:image/%s;base64,%s"}`, formatToDiscord(format), encoded)
-	ctx, cancel := context.WithTimeout(context.Background(), 30e9)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "PATCH", "https://discord.com/api/v10/users/@me", bytes.NewBufferString(jsonBody))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", token)
-	req.Header.Set("Content-Type", "application/json")
-
-	//nolint:gosec // G704: URL is hardcoded, not user-controlled
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("discord API error: %s", string(respBody))
-	}
-
-	return nil
-}
-
 type SteamProvider struct{}
 
 func (p SteamProvider) Name() string { return "steam" }
@@ -245,25 +204,10 @@ func decodeImage(data []byte) (image.Image, error) {
 	return img, nil
 }
 
-func formatToDiscord(ext string) string {
-	switch ext {
-	case formatJPEG, ".jpeg":
-		return "jpeg"
-	case formatGIF:
-		return "gif"
-	case formatWEBP:
-		return "webp"
-	default:
-		return "png"
-	}
-}
-
 func GetProvider(name string) (Provider, error) {
 	switch name {
 	case "github":
 		return GitHubProvider{}, nil
-	case "discord":
-		return DiscordProvider{}, nil
 	case "steam":
 		return SteamProvider{}, nil
 	default:
