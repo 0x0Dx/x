@@ -5,6 +5,7 @@ version: '3'
 vars:
   PACKAGES: [
     cliimage,
+    goreview,
   ]
 
 tasks:
