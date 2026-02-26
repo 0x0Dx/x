@@ -6,5 +6,5 @@
   "onboarding": true,
   "onboardingBranch": "github-renovate/configure",
   "platform": "github",
-  "repositories": []
+  "repositories": ["0x0Dx/x"]
 }
