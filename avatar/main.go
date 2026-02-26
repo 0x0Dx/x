@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var debug bool
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
@@ -26,10 +28,18 @@ func main() {
 	cfg := GetConfig()
 	token := GetToken()
 
+	if debug {
+		fmt.Fprintf(os.Stderr, "[debug] provider: %s, image: %s\n", cfg.Provider, cfg.Image)
+	}
+
 	imageData, ext, err := GetImageData(cfg.Image)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if debug {
+		fmt.Fprintf(os.Stderr, "[debug] fetched image, size: %d, format: %s\n", len(imageData), ext)
 	}
 
 	provider, err := GetProvider(cfg.Provider)

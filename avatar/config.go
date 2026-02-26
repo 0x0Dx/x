@@ -35,6 +35,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&cfg.Provider, "provider", "p", "", "provider: github, discord, steam")
 	rootCmd.Flags().StringVarP(&cfg.Image, "image", "i", "", "path to image file or URL")
 	rootCmd.Flags().StringVarP(&cfg.Token, "token", "t", "", "API token (or set via environment variable)")
+	rootCmd.Flags().BoolVarP(&debug, "debug", "d", false, "enable debug output")
 }
 
 func Execute() error {
