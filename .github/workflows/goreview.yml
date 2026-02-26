@@ -19,4 +19,4 @@ jobs:
             --github-sha "${{ github.event.pull_request.head.sha }}" \
             --pr-number "${{ github.event.pull_request.number }}" \
             --openai-api-base "https://openrouter.ai/api/v1"
-            --openai-model "qwen/qwen3-coder:free"
+            --openai-model "google/gemma-3-27b-it:free"
