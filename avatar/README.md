@@ -19,18 +19,19 @@ avatar -p <provider> -i <image> -t <token>
 - `-p, --provider` - Service provider: `github`, `discord`, `steam`
 - `-i, --image` - Path to image file or URL
 - `-t, --token` - API token (optional, can use `AVATAR_TOKEN` env var)
+- `-d, --debug` - Enable debug output
 
 ### Examples
 
 ```bash
-# GitHub (requires personal access token with user:email scope)
+# GitHub (requires personal access token with user scope)
 avatar -p github -i avatar.png -t ghp_xxxxxxxxxxxx
 
-# Discord (requires user token)
+# Discord (requires user token - get from browser devtools)
 avatar -p discord -i avatar.png -t MzIxxxxxxxx
 
-# Steam (requires session cookies)
-avatar -p steam -i avatar.png -t "sessionid;steamLoginSecure"
+# Steam (requires cookies from browser)
+avatar -p steam -i avatar.png -t "sessionid_value;steamLoginSecure_value"
 
 # From URL
 avatar -p github -i "https://example.com/avatar.png" -t $GITHUB_TOKEN
@@ -46,10 +47,47 @@ avatar -p github -i avatar.png
 - **Discord**: Uses Discord API with user token
 - **Steam**: Uses Steam web upload (requires session cookies from browser)
 
-## Steam Cookies
+## Getting Tokens
 
-To get Steam cookies:
-1. Open Steam in browser
-2. Open Developer Tools (F12)
-3. Go to Application > Cookies > steamcommunity.com
-4. Copy `sessionid` and `steamLoginSecure` values
+### GitHub
+
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Select scope: `user` (full control of user account)
+4. Copy the token
+
+### Discord
+
+1. Open Discord in browser (not app)
+2. Press F12 to open Developer Tools
+3. Go to Network tab
+4. Click any request to your user ID (like `/api/v9/users/@me`)
+5. Look in "Request Headers" > "Authorization"
+6. Copy the token (starts with `Mzi` or `ODY`)
+
+### Steam
+
+You need cookies from steamcommunity.com:
+
+1. Open https://steamcommunity.com/ in browser (must be logged in)
+2. Press F12 to open Developer Tools
+3. Go to **Application** tab (Chrome) or **Storage** tab (Firefox)
+4. Expand **Cookies** > **https://steamcommunity.com**
+5. Copy these values:
+   - `sessionid`
+   - `steamLoginSecure` (contains your SteamID64 before `||`)
+
+Format: `"sessionid_value;steamLoginSecure_value"`
+
+Example:
+```bash
+avatar -p steam -i avatar.png -t "abc123def456;76561198000000000%7C%7Cabcdef123456..."
+```
+
+### Debug Mode
+
+If something isn't working, add `-d` flag to see what's happening:
+
+```bash
+avatar -p steam -i avatar.png -t "sessionid;steamLoginSecure" -d
+```
