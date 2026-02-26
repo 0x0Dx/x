@@ -26,13 +26,19 @@ func main() {
 	cfg := GetConfig()
 	token := GetToken()
 
+	imageData, ext, err := GetImageData(cfg.Image)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	provider, err := GetProvider(cfg.Provider)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	if err := provider.ChangeAvatar(cfg.ImagePath, token); err != nil {
+	if err := provider.ChangeAvatar(imageData, ext, token); err != nil {
 		fmt.Fprintf(os.Stderr, "Error changing avatar: %v\n", err)
 		os.Exit(1)
 	}

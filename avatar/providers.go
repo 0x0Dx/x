@@ -10,30 +10,31 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
+)
+
+const (
+	formatJPEG = ".jpg"
+	formatGIF  = ".gif"
+	formatWEBP = ".webp"
+	formatPNG  = ".png"
 )
 
 type Provider interface {
 	Name() string
-	ChangeAvatar(imagePath string, token string) error
+	ChangeAvatar(imageData []byte, format string, token string) error
 }
 
 type GitHubProvider struct{}
 
 func (p GitHubProvider) Name() string { return "github" }
 
-func (p GitHubProvider) ChangeAvatar(imagePath string, token string) error {
+func (p GitHubProvider) ChangeAvatar(imageData []byte, _ string, token string) error {
 	if token == "" {
 		return fmt.Errorf("token is required for GitHub. Set AVATAR_TOKEN or use -t")
 	}
 
-	data, err := os.ReadFile(imagePath)
-	if err != nil {
-		return fmt.Errorf("failed to read image: %w", err)
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(data)
+	encoded := base64.StdEncoding.EncodeToString(imageData)
 
 	body := fmt.Sprintf(`{"avatar_base64":"%s"}`, encoded)
 	ctx, cancel := context.WithTimeout(context.Background(), 30e9)
@@ -71,29 +72,20 @@ type DiscordProvider struct{}
 
 func (p DiscordProvider) Name() string { return "discord" }
 
-func (p DiscordProvider) ChangeAvatar(imagePath string, token string) error {
+func (p DiscordProvider) ChangeAvatar(imageData []byte, format string, token string) error {
 	if token == "" {
 		return fmt.Errorf("token is required for Discord. Set AVATAR_TOKEN or use -t")
 	}
 
-	data, err := os.ReadFile(imagePath)
-	if err != nil {
-		return fmt.Errorf("failed to read image: %w", err)
-	}
-
-	ext := filepath.Ext(imagePath)
-	format := "png"
-	if ext == ".jpg" || ext == ".jpeg" {
-		format = "jpeg"
-	}
+	imgFormat := formatToDiscord(format)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("avatar", "avatar."+format)
+	part, err := writer.CreateFormFile("avatar", "avatar."+imgFormat)
 	if err != nil {
 		return fmt.Errorf("failed to create form file: %w", err)
 	}
-	if _, err := part.Write(data); err != nil {
+	if _, err := part.Write(imageData); err != nil {
 		return fmt.Errorf("failed to write avatar data: %w", err)
 	}
 	if err := writer.Close(); err != nil {
@@ -133,14 +125,9 @@ type SteamProvider struct{}
 
 func (p SteamProvider) Name() string { return "steam" }
 
-func (p SteamProvider) ChangeAvatar(imagePath string, token string) error {
+func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token string) error {
 	if token == "" {
 		return fmt.Errorf("steam session cookies required (sessionid and steamLoginSecure)")
-	}
-
-	data, err := os.ReadFile(imagePath)
-	if err != nil {
-		return fmt.Errorf("failed to read image: %w", err)
 	}
 
 	sessionID, steamLoginSecure, ok := strings.Cut(token, ";")
@@ -159,6 +146,8 @@ func (p SteamProvider) ChangeAvatar(imagePath string, token string) error {
 		}
 	}
 
+	filename := "avatar" + format
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	if err := writer.WriteField("type", "player_avatar_image"); err != nil {
@@ -173,11 +162,11 @@ func (p SteamProvider) ChangeAvatar(imagePath string, token string) error {
 	if err := writer.WriteField("doSub", "1"); err != nil {
 		return fmt.Errorf("failed to write doSub field: %w", err)
 	}
-	part, err := writer.CreateFormFile("avatar", filepath.Base(imagePath))
+	part, err := writer.CreateFormFile("avatar", filename)
 	if err != nil {
 		return fmt.Errorf("failed to create form file: %w", err)
 	}
-	if _, err := part.Write(data); err != nil {
+	if _, err := part.Write(imageData); err != nil {
 		return fmt.Errorf("failed to write avatar data: %w", err)
 	}
 	if err := writer.Close(); err != nil {
@@ -212,6 +201,19 @@ func (p SteamProvider) ChangeAvatar(imagePath string, token string) error {
 	}
 
 	return nil
+}
+
+func formatToDiscord(ext string) string {
+	switch ext {
+	case formatJPEG, ".jpeg":
+		return "jpeg"
+	case formatGIF:
+		return "gif"
+	case formatWEBP:
+		return "webp"
+	default:
+		return "png"
+	}
 }
 
 func GetProvider(name string) (Provider, error) {

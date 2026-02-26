@@ -9,9 +9,9 @@ import (
 )
 
 type Config struct {
-	Provider  string
-	ImagePath string
-	Token     string
+	Provider string
+	Image    string
+	Token    string
 }
 
 var cfg Config
@@ -21,8 +21,8 @@ var rootCmd = &cobra.Command{
 	Short: "Change avatar for various services",
 	Long:  "A CLI tool to change avatars for GitHub, Discord, Steam, and more",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		if cfg.ImagePath == "" {
-			return fmt.Errorf("image path is required (use -i)")
+		if cfg.Image == "" {
+			return fmt.Errorf("image path or URL is required (use -i)")
 		}
 		if cfg.Provider == "" {
 			return fmt.Errorf("provider is required (use -p)")
@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().StringVarP(&cfg.Provider, "provider", "p", "", "provider: github, discord, steam")
-	rootCmd.Flags().StringVarP(&cfg.ImagePath, "image", "i", "", "path to image file")
+	rootCmd.Flags().StringVarP(&cfg.Image, "image", "i", "", "path to image file or URL")
 	rootCmd.Flags().StringVarP(&cfg.Token, "token", "t", "", "API token (or set via environment variable)")
 }
 
