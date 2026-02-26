@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  PACKAGES: [
+    
+  ]
+
+tasks:
+  fmt:
+    desc: Run gofumpt for all packages
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && $HOME/go/bin/gofumpt -w .
+
+  modernize:
+    desc: Run modernize for all packages
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && $HOME/go/bin/modernize -fix ./...
+  
+  lint:
+    desc: Run base linters for all packages
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run
+  
+  test:
+    desc: Run tests for all packages
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && go test ./... {{.CLI_ARGS}}
+
+  tidy:
+    desc: Run `go mod tidy` for all packages
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && go mod tidy
