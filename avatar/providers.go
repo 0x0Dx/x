@@ -127,34 +127,46 @@ func (p SteamProvider) Name() string { return "steam" }
 
 func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token string) error {
 	if token == "" {
-		return fmt.Errorf("steam session cookies required (sessionid and steamLoginSecure)")
+		return fmt.Errorf("steam session cookies required (sessionid;steamLoginSecure[;steamCountry])")
 	}
 
-	sessionID, steamLoginSecure, ok := strings.Cut(token, ";")
-	if !ok {
-		return fmt.Errorf("invalid token format: expected 'sessionid;steamLoginSecure'")
+	parts := strings.Split(token, ";")
+	sessionID := strings.TrimSpace(parts[0])
+	steamLoginSecure := ""
+	steamCountry := ""
+	if len(parts) > 1 {
+		steamLoginSecure = strings.TrimSpace(parts[1])
 	}
-	sessionID = strings.TrimSpace(sessionID)
-	steamLoginSecure = strings.TrimSpace(steamLoginSecure)
+	if len(parts) > 2 {
+		steamCountry = strings.TrimSpace(parts[2])
+	}
+
+	if sessionID == "" || steamLoginSecure == "" {
+		return fmt.Errorf("invalid token: need at least sessionid and steamLoginSecure")
+	}
 
 	steamID := ""
 	if idx := strings.Index(steamLoginSecure, "%7C%7C"); idx != -1 {
 		steamID = steamLoginSecure[:idx]
 	} else if decoded, err := url.QueryUnescape(steamLoginSecure); err == nil {
-		if parts := strings.Split(decoded, "||"); len(parts) > 0 {
-			steamID = parts[0]
+		if splitIdx := strings.Index(decoded, "||"); splitIdx != -1 {
+			steamID = decoded[:splitIdx]
 		}
 	}
 
+	if steamID == "" {
+		return fmt.Errorf("could not extract SteamID from token")
+	}
+
 	filename := "avatar" + format
+	if filename == "avatar" {
+		filename = "avatar.png"
+	}
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	if err := writer.WriteField("type", "player_avatar_image"); err != nil {
 		return fmt.Errorf("failed to write type field: %w", err)
-	}
-	if err := writer.WriteField("sId", steamID); err != nil {
-		return fmt.Errorf("failed to write sId field: %w", err)
 	}
 	if err := writer.WriteField("sessionid", sessionID); err != nil {
 		return fmt.Errorf("failed to write sessionid field: %w", err)
@@ -173,10 +185,15 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	cookie := fmt.Sprintf("sessionid=%s; steamLoginSecure=%s;", sessionID, steamLoginSecure)
+	cookie := fmt.Sprintf("sessionid=%s; steamLoginSecure=%s", sessionID, steamLoginSecure)
+	if steamCountry != "" {
+		cookie += "; steamCountry=" + steamCountry
+	}
+
+	uploadURL := fmt.Sprintf("https://steamcommunity.com/actions/FileUploader?type=player_avatar_image&sId=%s", steamID)
 	ctx, cancel := context.WithTimeout(context.Background(), 30e9)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://steamcommunity.com/actions/FileUploader", body)
+	req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -184,7 +201,7 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	//nolint:gosec // G704: URL is hardcoded, not user-controlled
+	//nolint:gosec // G704: URL is hardcoded with steamID from user cookie
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
