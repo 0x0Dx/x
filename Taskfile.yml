@@ -5,6 +5,7 @@ version: '3'
 vars:
   PACKAGES: [
     cliimage,
+    avatar,
   ]
 
 tasks:
@@ -47,6 +48,6 @@ tasks:
   build:
     desc: Run `go build ./...` for all packages
     cmds:
-      - cmd: rm -rf ./bin && mkdir ./bin
+      - cmd: rm -rf ./_bin && mkdir ./_bin
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go build -o ../bin ./...
+        cmd: cd {{.ITEM}} && go build -o ../_bin ./...
