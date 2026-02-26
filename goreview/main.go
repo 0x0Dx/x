@@ -82,7 +82,15 @@ func main() {
 	}
 
 	fmt.Println(review)
-	fmt.Println("Review completed successfully")
+
+	_, err = ghClient.CreateReview(ctx, cfg.PRNumber, review, "COMMENT", cfg.GitHubSHA)
+	if err != nil {
+		slog.Error("failed to submit review to GitHub", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("review submitted successfully")
+	fmt.Println("Review submitted to GitHub")
 }
 
 func buildPrompt(files []*File, title, body string) (string, error) {
