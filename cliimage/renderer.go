@@ -124,10 +124,7 @@ func (r *CliImage) Render(img image.Image) string {
 
 	if outHeight <= 0 {
 		const divider = 2
-		outHeight = int(float64(outWidth) * float64(srcHeight) / float64(srcWidth) / divider)
-		if outHeight < 1 {
-			outHeight = 1
-		}
+		outHeight = max(int(float64(outWidth)*float64(srcHeight)/float64(srcWidth)/divider), 1)
 	}
 
 	scaledImg := r.applyScaling(img, outWidth*r.scale, outHeight*r.scale)
@@ -165,8 +162,8 @@ func (r *CliImage) Render(img image.Image) string {
 func (r *CliImage) createPixelBlock(img image.Image, x, y int) *pixelBlock {
 	block := &pixelBlock{}
 
-	for dy := 0; dy < 2; dy++ {
-		for dx := 0; dx < 2; dx++ {
+	for dy := range 2 {
+		for dx := range 2 {
 			block.Pixels[dy][dx] = r.getPixelSafe(img, x+dx, y+dy)
 		}
 	}
@@ -183,8 +180,8 @@ func (r *CliImage) findBestRepresentation(block *pixelBlock, availableBlocks []B
 	}
 
 	pixelMask := [2][2]bool{}
-	for y := 0; y < 2; y++ {
-		for x := 0; x < 2; x++ {
+	for y := range 2 {
+		for x := range 2 {
 			luma := rgbaToLuminance(block.Pixels[y][x])
 			pixelMask[y][x] = luma >= r.thresholdLevel
 		}
@@ -195,7 +192,7 @@ func (r *CliImage) findBestRepresentation(block *pixelBlock, availableBlocks []B
 
 	for _, blockChar := range availableBlocks {
 		score := 0.0
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			y, x := i/2, i%2
 			if blockChar.Coverage[i] != pixelMask[y][x] {
 				score += 1.0
@@ -218,7 +215,7 @@ func (r *CliImage) findBestRepresentation(block *pixelBlock, availableBlocks []B
 		}
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		y, x := i/2, i%2
 		if coverage[i] {
 			fgPixels = append(fgPixels, block.Pixels[y][x])
@@ -318,8 +315,8 @@ func (r *CliImage) invertImage(img image.Image) image.Image {
 	height := bounds.Max.Y - bounds.Min.Y
 
 	result := image.NewRGBA(bounds)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			r8, g8, b8, a8 := img.At(x+bounds.Min.X, y+bounds.Min.Y).RGBA()
 			invR := clampUint8(maxColorValue - (r8 >> 8))
 			invG := clampUint8(maxColorValue - (g8 >> 8))

@@ -5,12 +5,17 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/nfnt/resize"
 )
 
 const (
@@ -158,8 +163,26 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 		return fmt.Errorf("could not extract SteamID from token")
 	}
 
-	filename := "avatar" + format
-	if filename == "avatar" {
+	img, err := decodeImage(imageData)
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	resized := resize.Resize(256, 256, img, resize.Lanczos3)
+
+	var imgData bytes.Buffer
+	if format == formatPNG {
+		if err := png.Encode(&imgData, resized); err != nil {
+			return fmt.Errorf("failed to encode PNG: %w", err)
+		}
+	} else {
+		if err := jpeg.Encode(&imgData, resized, &jpeg.Options{Quality: 90}); err != nil {
+			return fmt.Errorf("failed to encode JPEG: %w", err)
+		}
+	}
+
+	filename := "avatar.jpg"
+	if format == formatPNG {
 		filename = "avatar.png"
 	}
 
@@ -178,7 +201,7 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 	if err != nil {
 		return fmt.Errorf("failed to create form file: %w", err)
 	}
-	if _, err := part.Write(imageData); err != nil {
+	if _, err := part.Write(imgData.Bytes()); err != nil {
 		return fmt.Errorf("failed to write avatar data: %w", err)
 	}
 	if err := writer.Close(); err != nil {
@@ -219,12 +242,19 @@ func (p SteamProvider) ChangeAvatar(imageData []byte, format string, token strin
 		return fmt.Errorf("steam API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
-	// Steam returns success as "OK" or the avatar URL
-	if len(respBody) > 0 && !bytes.Contains(respBody, []byte("success")) && !bytes.Contains(respBody, []byte("OK")) {
+	if len(respBody) > 0 && !bytes.Contains(respBody, []byte("success")) && !bytes.Contains(respBody, []byte("OK")) && !bytes.Contains(respBody, []byte("http")) {
 		return fmt.Errorf("steam API returned unexpected response: %s", string(respBody))
 	}
 
 	return nil
+}
+
+func decodeImage(data []byte) (image.Image, error) {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image: %w", err)
+	}
+	return img, nil
 }
 
 func formatToDiscord(ext string) string {
