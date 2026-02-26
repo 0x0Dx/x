@@ -18,4 +18,5 @@ jobs:
             --github-repo "${{ github.repository }}" \
             --github-sha "${{ github.event.pull_request.head.sha }}" \
             --pr-number "${{ github.event.pull_request.number }}" \
-            --openai-model "gpt-4o"
+            --openai-api-base "https://openrouter.ai/api/v1"
+            --openai-model "openai/gpt-oss-20b:free"
