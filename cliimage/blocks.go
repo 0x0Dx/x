@@ -1,3 +1,4 @@
+// Package main provides a terminal image viewer.
 package main
 
 type Block struct {

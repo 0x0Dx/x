@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -25,7 +26,7 @@ var rootCmd = &cobra.Command{
 	Use:   "cliimage",
 	Short: "A terminal image viewer",
 	Long:  "Allows to render images in the Terminal",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		if cfg.InputFile == "" {
 			return fmt.Errorf("input file is required (use -i)")
 		}
@@ -47,11 +48,17 @@ func init() {
 	rootCmd.Flags().BoolVarP(&cfg.Invert, "invert", "r", false, "Invert colors")
 	rootCmd.Flags().IntVar(&cfg.Scale, "scale", 1, "Scale factor for rendering (1 = 1 character per 2x2 pixels)")
 
-	rootCmd.MarkFlagRequired("input")
+	if err := rootCmd.MarkFlagRequired("input"); err != nil {
+		fmt.Fprintf(os.Stderr, "Error marking flag as required: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func Execute() error {
-	return rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		return fmt.Errorf("failed to execute root command: %w", err)
+	}
+	return nil
 }
 
 func GetConfig() Config {

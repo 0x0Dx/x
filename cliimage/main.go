@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -8,6 +9,7 @@ import (
 	_ "image/png"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -17,7 +19,7 @@ import (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Printf("A terminal image viewer v0.1.0\n")
 	},
 }
@@ -34,7 +36,11 @@ func main() {
 	cfg := GetConfig()
 
 	file := openInputFile(cfg.InputFile)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing file: %v\n", err)
+		}
+	}()
 
 	img, format, err := image.Decode(file)
 	if err != nil {
@@ -63,21 +69,24 @@ func main() {
 	result := renderer.Render(img)
 
 	if cfg.OutputFile != "" {
-		if err := os.WriteFile(cfg.OutputFile, []byte(result), 0o644); err != nil {
+		outputPath := filepath.Clean(cfg.OutputFile)
+		//nolint:gosec // G703: false positive - path is cleaned by filepath.Clean
+		if err := os.WriteFile(outputPath, []byte(result), 0o600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Successfully converted %s (%s format) to %s\n", cfg.InputFile, format, cfg.OutputFile)
+		fmt.Printf("Successfully converted %s (%s format) to %s\n", cfg.InputFile, format, outputPath)
 	} else {
 		fmt.Print(result)
 	}
 }
 
 func getTerminalWidth() int {
-	cmd := exec.Command("tput", "cols")
+	ctx, cancel := context.WithTimeout(context.Background(), 10000000000)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "tput", "cols")
 	out, _ := cmd.Output()
 	if w, err := strconv.Atoi(strings.TrimSpace(string(out))); err == nil && w > 0 {
-		// Kitty/modern terminals report half width
 		if w < 120 {
 			w *= 2
 		}

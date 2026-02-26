@@ -258,13 +258,29 @@ func (r *CliImage) averageColors(colors ...color.Color) color.Color {
 		sumA += colA
 	}
 
-	count := uint32(len(colors))
-	return color.RGBA{
-		R: uint8(sumR / count),
-		G: uint8(sumG / count),
-		B: uint8(sumB / count),
-		A: uint8(sumA / count),
+	colorCount := len(colors)
+	if colorCount <= 0 {
+		return color.Black
 	}
+	//nolint:gosec // G115: false positive - colorCount is always small (0-4)
+	count := uint32(colorCount)
+	avgR := clampUint8(sumR / count)
+	avgG := clampUint8(sumG / count)
+	avgB := clampUint8(sumB / count)
+	avgA := clampUint8(sumA / count)
+	return color.RGBA{
+		R: avgR,
+		G: avgG,
+		B: avgB,
+		A: avgA,
+	}
+}
+
+func clampUint8(v uint32) uint8 {
+	if v > 255 {
+		return 255
+	}
+	return uint8(v)
 }
 
 func (CliImage) getPixelSafe(img image.Image, x, y int) color.RGBA {
@@ -275,10 +291,10 @@ func (CliImage) getPixelSafe(img image.Image, x, y int) color.RGBA {
 
 	r8, g8, b8, a8 := img.At(x, y).RGBA()
 	return color.RGBA{
-		R: uint8(r8 >> 8),
-		G: uint8(g8 >> 8),
-		B: uint8(b8 >> 8),
-		A: uint8(a8 >> 8),
+		R: clampUint8(r8 >> 8),
+		G: clampUint8(g8 >> 8),
+		B: clampUint8(b8 >> 8),
+		A: clampUint8(a8 >> 8),
 	}
 }
 
@@ -305,11 +321,15 @@ func (r *CliImage) invertImage(img image.Image) image.Image {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			r8, g8, b8, a8 := img.At(x+bounds.Min.X, y+bounds.Min.Y).RGBA()
+			invR := clampUint8(maxColorValue - (r8 >> 8))
+			invG := clampUint8(maxColorValue - (g8 >> 8))
+			invB := clampUint8(maxColorValue - (b8 >> 8))
+			alpha := clampUint8(a8 >> 8)
 			result.Set(x, y, color.RGBA{
-				R: uint8(maxColorValue - (r8 >> 8)),
-				G: uint8(maxColorValue - (g8 >> 8)),
-				B: uint8(maxColorValue - (b8 >> 8)),
-				A: uint8(a8 >> 8),
+				R: invR,
+				G: invG,
+				B: invB,
+				A: alpha,
 			})
 		}
 	}
