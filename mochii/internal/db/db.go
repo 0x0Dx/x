@@ -72,7 +72,9 @@ func (d *DB) List(table string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
 
 	result := make(map[string]string)
 	for rows.Next() {

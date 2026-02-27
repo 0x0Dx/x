@@ -150,7 +150,9 @@ func (b *Builder) install(h hash.Hash) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(buildDir)
+	if err := os.RemoveAll(buildDir); err != nil {
+		return err
+	}
 
 	if err := b.extractTarball(srcFile, buildDir); err != nil {
 		return err
@@ -176,7 +178,9 @@ func (b *Builder) install(h hash.Hash) error {
 		if err := copyDir(buildDir, installedDir); err != nil {
 			return err
 		}
-		os.RemoveAll(buildDir)
+		if err := os.RemoveAll(buildDir); err != nil {
+			return err
+		}
 	}
 
 	return b.DB.Set(DBInstPkgs, h.String(), installedDir)
@@ -226,12 +230,16 @@ func copyDir(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		defer srcFile.Close()
+		if err := srcFile.Close(); err != nil {
+			return err
+		}
 		dstFile, err := os.Create(dstPath)
 		if err != nil {
 			return err
 		}
-		defer dstFile.Close()
+		if err := dstFile.Close(); err != nil {
+			return err
+		}
 		_, err = io.Copy(dstFile, srcFile)
 		if err != nil {
 			return err
@@ -277,7 +285,9 @@ func (b *Builder) runBuilder(script, dir string, h hash.Hash) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
 
 	cmd := exec.Command(script)
 	cmd.Dir = dir
@@ -406,12 +416,16 @@ func (b *Builder) RegisterFile(path string) (hash.Hash, error) {
 		if err != nil {
 			return "", err
 		}
-		defer srcFile.Close()
+		if err := srcFile.Close(); err != nil {
+			return "", err
+		}
 		dstFile, err := os.Create(srcPath)
 		if err != nil {
 			return "", err
 		}
-		defer dstFile.Close()
+		if err := dstFile.Close(); err != nil {
+			return "", err
+		}
 		_, err = io.Copy(dstFile, srcFile)
 		if err != nil {
 			return "", err

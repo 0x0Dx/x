@@ -38,7 +38,9 @@ func (f *Fetcher) FetchURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer out.Close()
+	if err := out.Close(); err != nil {
+		return "", err
+	}
 
 	client := &http.Client{
 		Timeout: 10 * time.Minute,

@@ -153,7 +153,9 @@ func (c *CLI) Verify() error {
 	for h, path := range pkgs {
 		if !util.DirExists(path) {
 			fmt.Printf("package %s at %s is missing\n", h, path)
-			c.builder.Delete(hash.Hash(h))
+			if err := c.builder.Delete(hash.Hash(h)); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: delete failed: %v\n", err)
+			}
 		}
 	}
 
