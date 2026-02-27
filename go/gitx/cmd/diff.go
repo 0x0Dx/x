@@ -9,17 +9,21 @@ import (
 )
 
 var diffCmd = &cobra.Command{
-	Use:   "diff [-c]",
+	Use:   "diff [-c] [file]",
 	Short: "Show changes",
-	Run: func(cc *cobra.Command, _ []string) {
+	Args:  cobra.RangeArgs(0, 1),
+	Run: func(cc *cobra.Command, args []string) {
 		staged, _ := cc.Flags().GetBool("cached")
 
-		args := []string{"diff"}
+		gitArgs := []string{"diff"}
 		if staged {
-			args = append(args, "--cached")
+			gitArgs = append(gitArgs, "--cached")
+		}
+		if len(args) > 0 {
+			gitArgs = append(gitArgs, "--", args[0])
 		}
 
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", gitArgs...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
