@@ -1,4 +1,4 @@
-// Package store provides store query operations like nix-store.
+// Package store provides store query operations like mochi-store.
 package store
 
 import (

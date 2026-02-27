@@ -23,7 +23,7 @@ func Hash(path string) (string, error) {
 		Size:     0,
 		Typeflag: tar.TypeDir,
 	}); err != nil {
-		return "", fmt.Errorf("write nix version: %w", err)
+		return "", fmt.Errorf("write mochi archive: %w", err)
 	}
 
 	// Walk the directory
@@ -106,7 +106,7 @@ func (nw *Writer) WriteDir(path string) error {
 		Size:     0,
 		Typeflag: tar.TypeDir,
 	}); err != nil {
-		return fmt.Errorf("write nix version: %w", err)
+		return fmt.Errorf("write mochi archive: %w", err)
 	}
 
 	// Walk the directory
@@ -181,7 +181,7 @@ func (nr *Reader) Extract(dest string) error {
 		}
 
 		// Skip special files
-		if header.Name == "nix-2.11" || header.Name == "nix archive" {
+		if header.Name == "mochi-1.0" || header.Name == "mochi archive" {
 			continue
 		}
 
