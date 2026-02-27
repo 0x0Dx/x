@@ -30,7 +30,7 @@ var undoCmd = &cobra.Command{
 			return
 		}
 
-		var validRef = regexp.MustCompile(`^[a-zA-Z0-9./\-_]+$`)
+		validRef := regexp.MustCompile(`^[a-zA-Z0-9./\-_]+$`)
 
 		mode := "soft"
 		if hard {
