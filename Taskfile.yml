@@ -49,5 +49,5 @@ tasks:
     desc: Build all binaries
     cmds:
       - cmd: rm -rf ./bin && mkdir ./bin
-      - cmd: cd cliimage && go build -o ../bin/cliimage ./cmd/...
+      - cmd: cd cliimage && go build -o ../bin/cliimage .
       - cmd: cd goserv && go build -o ../bin/goserv .

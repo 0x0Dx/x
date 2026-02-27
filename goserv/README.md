@@ -5,7 +5,7 @@ A simple HTTP file server.
 ## Installation
 
 ```bash
-go install github.com/0x0Dx/x/goserv/cmd@latest
+go install github.com/0x0Dx/x/goserv@latest
 ```
 
 ## Usage
