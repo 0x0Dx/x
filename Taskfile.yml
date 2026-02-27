@@ -54,7 +54,7 @@ tasks:
       - for: { var: PACKAGES }
         cmd: |
           NAME=$(basename {{.ITEM}})
-          cd {{.ITEM}} && go build -o ../bin/$NAME .
+          cd {{.ITEM}} && go build -o ../../bin/$NAME .
   install:
     desc: Install all binaries
     cmds:
