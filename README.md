@@ -9,16 +9,58 @@ Monorepo containing tools.
 - [`gitx`](./gitx) Simple git wrapper.
 - [`mochii`](./mochii) Package manager inspired by early Nix.
 
-## Installation 
- 
-```bash
-go install github.com/0x0Dx/x/cliimage@main
-go install github.com/0x0Dx/x/goserv@main
-go install github.com/0x0Dx/x/gitx@main
-go install github.com/0x0Dx/x/mochii@main
+## mochii
+
+A simple, opinionated package manager inspired by early Nix.
+
+### Lua Builder Scripts
+
+mochii supports Lua-based builder scripts (`.lua`) in addition to shell scripts. Lua builders provide a more expressive and type-safe way to define package builds.
+
+```lua
+-- Example: hello.lua builder
+-- Define environment variables
+env("NAME", "world")
+env("VERSION", "1.0.0")
+
+-- Add source dependencies
+source("https://example.com/hello.tar.gz")
+
+-- Define the derivation
+derive("hello", {"input1", "input2"})
+
+-- Run build commands
+run("make")
+run("make", "install", "PREFIX=" .. mu.install)
+
+-- Define output
+output(mu.install .. "/bin/hello")
 ```
 
-## Development
+### Available Lua Functions
+
+| Function | Description |
+|----------|-------------|
+| `derive(name, inputs)` | Define a derivation |
+| `source(url)` | Add a source URL |
+| `path(s)` | Convert to absolute path |
+| `hash(s)` | Compute hash |
+| `output(path)` | Define output path |
+| `env(key, value)` | Set environment variable |
+| `run(cmd, ...)` | Run a command |
+| `fetchurl(url)` | Fetch a URL |
+| `nar(path)` | Create NAR archive |
+| `unnar(archive, dest)` | Extract NAR archive |
+
+### Environment Variables
+
+- `mu` - Table of environment variables
+- `mu.install` - Installation directory
+- `mu.sources` - Sources directory
+- `ARGS` - Command line arguments
+- `ENV` - Full environment
+
+### Development
 
 Requires [Task](https://taskfile.dev) for running common tasks.
 

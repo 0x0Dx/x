@@ -92,6 +92,53 @@ Environment variables:
 - `MOCHII_PREFIX` - installation directory
 - `MOCHII_HASH` - package hash
 
+### Lua Builder Script
+
+mochii also supports Lua-based builder scripts (`.lua`). Lua builders provide a more expressive way to define package builds:
+
+```lua
+-- Example: hello.lua builder
+-- Define environment variables
+env("NAME", "world")
+env("VERSION", "1.0.0")
+
+-- Add source dependencies
+source("https://example.com/hello.tar.gz")
+
+-- Define the derivation
+derive("hello", {"input1", "input2"})
+
+-- Run build commands
+run("make")
+run("make", "install", "PREFIX=" .. mu.install)
+
+-- Define output
+output(mu.install .. "/bin/hello")
+```
+
+#### Available Lua Functions
+
+| Function | Description |
+|----------|-------------|
+| `derive(name, inputs)` | Define a derivation |
+| `source(url)` | Add a source URL |
+| `path(s)` | Convert to absolute path |
+| `hash(s)` | Compute hash |
+| `output(path)` | Define output path |
+| `env(key, value)` | Set environment variable |
+| `run(cmd, ...)` | Run a command |
+| `fetchurl(url)` | Fetch a URL |
+| `nar(path)` | Create NAR archive |
+| `unnar(archive, dest)` | Extract NAR archive |
+
+#### Lua Environment Variables
+
+- `mu` - Table of environment variables
+- `mu.install` - Installation directory (`MOCHII_INSTALL`)
+- `mu.sources` - Sources directory (`MOCHII_SOURCES`)
+- `ARGS` - Command line arguments
+- `ENV` - Full environment table
+
 ### Prebuilt Package
 
 Prebuilts are binary substitutes that skip the build step. They are optional.
