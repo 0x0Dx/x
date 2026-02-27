@@ -1,6 +1,6 @@
-# x
+# 0x0D's experimental packages 
 
-Monorepo containing Go CLI tools.
+Monorepo containing tools.
 
 ## Projects
 
