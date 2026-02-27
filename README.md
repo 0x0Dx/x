@@ -21,7 +21,12 @@ go install github.com/0x0Dx/x/gitx@main
 Requires [Task](https://taskfile.dev) for running common tasks.
 
 ```bash
-task build    # Build all binaries
-task lint     # Run linters
-task tidy     # Run go mod tidy
+task install:tools  # Install dev tools (gofumpt, goimports, golangci-lint)
+task build          # Build all binaries to ./bin
+task install        # Install all binaries to $GOPATH/bin
+task lint           # Run linters
+task lint:fix       # Run linters and fix issues
+task fmt            # Format code with gofumpt
+task tidy           # Run go mod tidy
+task test           # Run tests
 ```
