@@ -5,12 +5,13 @@ import (
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 type App struct {
 	window *glfw.Window
 	//shaders       *ShaderManager
-	//camera        *Camera
+	camera *Camera
 	//chunkRenderer *RhunkRenderer
 }
 
@@ -24,13 +25,13 @@ func Start() {
 	//a.shaders = newShaderManager("./shaders")
 	//a.shaders.Add("main")
 
-	//a.camera = newCamera(mgl32.Vec3{0, 0, 2}, a.window)
+	a.camera = newCamera(mgl32.Vec3{0, 0, 2}, a.window)
 
 	//a.chunkRenderer = newChunkRenderer(a.shaders, a.camera)
 
 	//chunk := a.chunkRenderer.CreateChunk(mgl32.Vec3{0, 0, 0})
 
-	//a.camera.SetLookHandler()
+	a.camera.SetLookHandler()
 
 	isPressed := false
 	a.window.SetMouseButtonCallback(func(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
