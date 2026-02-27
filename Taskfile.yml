@@ -8,51 +8,45 @@ vars:
     go/goserv,
     go/gitx,
   ]
+  PLATFORMS: [
+    linux/amd64,
+    linux/arm64,
+    darwin/amd64,
+    darwin/arm64,
+    windows/amd64,
+  ]
 
 tasks:
-  install:tools:
-    desc: Install all tools needed
-    cmds:
-      - go install mvdan.cc/gofumpt@latest
-      - go install golang.org/x/tools/cmd/goimports@latest
-      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-
   fmt:
     desc: Run gofumpt for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && $HOME/go/bin/gofumpt -w .
-
   modernize:
     desc: Run modernize for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && $HOME/go/bin/modernize -fix ./...
-  
   lint:
     desc: Run base linters for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run
-  
   lint:fix:
     desc: Run base linters and fix issues for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run --fix
-  
   test:
     desc: Run tests for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && go test ./...
-
   tidy:
     desc: Run `go mod tidy` for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && go mod tidy
-  
   build:
     desc: Build all binaries
     cmds:
@@ -61,7 +55,6 @@ tasks:
         cmd: |
           NAME=$(basename {{.ITEM}})
           cd {{.ITEM}} && go build -o ../bin/$NAME .
-
   install:
     desc: Install all binaries
     cmds:
@@ -69,3 +62,71 @@ tasks:
         cmd: |
           NAME=$(basename {{.ITEM}})
           cd {{.ITEM}} && go install -v .
+  install:tools:
+    desc: Install all tools needed
+    cmds:
+      - go install mvdan.cc/gofumpt@latest
+      - go install golang.org/x/tools/cmd/goimports@latest
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+  release:
+    desc: Build release binaries
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
+    cmds:
+      - rm -rf ./dist && mkdir -p ./dist
+      - task: release:build
+      - task: release:checksums
+      - echo "Release artifacts in ./dist"
+      - echo "Run 'gh release create {{.VERSION}} dist/*' to publish"
+  release:build:
+    internal: true
+    cmds:
+      - for: { var: PLATFORMS }
+        task: release:build:platform
+        vars:
+          PLATFORM: '{{.ITEM}}'
+  release:build:platform:
+    internal: true
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
+      GOOS:
+        sh: echo {{.PLATFORM}} | cut -d'/' -f1
+      GOARCH:
+        sh: echo {{.PLATFORM}} | cut -d'/' -f2
+    cmds:
+      - for: { var: PACKAGES }
+        cmd: |
+          TOOL=$(basename {{.ITEM}})
+          EXT=""
+          [[ "{{.GOOS}}" == "windows" ]] && EXT=".exe"
+
+          OUTPUT="dist/${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}${EXT}"
+
+          echo "Building $TOOL for {{.GOOS}}/{{.GOARCH}}..."
+          cd {{.ITEM}} && \
+          CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} \
+            go build -ldflags="-s -w -X main.version={{.VERSION}}" -o ../../$OUTPUT .
+
+          cd ../../dist
+          if [[ "{{.GOOS}}" == "windows" ]]; then
+            zip "${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}.zip" "$(basename $OUTPUT)"
+            rm "$(basename $OUTPUT)"
+          else
+            tar czf "${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}.tar.gz" "$(basename $OUTPUT)"
+            rm "$(basename $OUTPUT)"
+          fi
+  release:checksums:
+    internal: true
+    cmds:
+      - cd dist && shasum -a 256 * > checksums.txt
+  release:publish:
+    desc: Publish release to GitHub
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
+    preconditions:
+      - sh: command -v gh
+        msg: "gh CLI not found. Install from https://cli.github.com"
+      - sh: test -d dist
+        msg: "Run 'task release VERSION={{.VERSION}}' first"
+    cmds:
+      - gh release create {{.VERSION}} dist/* --generate-notes
