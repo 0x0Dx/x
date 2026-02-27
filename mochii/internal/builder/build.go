@@ -12,6 +12,7 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/db"
 	"github.com/0x0Dx/x/mochii/internal/hasher"
 	"github.com/0x0Dx/x/mochii/internal/helper"
+	"github.com/0x0Dx/x/mochii/internal/lua"
 )
 
 // Database table names.
@@ -328,6 +329,7 @@ func (b *Builder) extractTarball(src, dest string) error {
 }
 
 // runBuilder executes the builder script with appropriate environment.
+// Supports both shell scripts (.sh) and Lua scripts (.lua).
 func (b *Builder) runBuilder(script, dir string, h hasher.Hash) error {
 	fmt.Printf("running builder %s\n", script)
 
@@ -343,20 +345,52 @@ func (b *Builder) runBuilder(script, dir string, h hasher.Hash) error {
 		return fmt.Errorf("close log file: %w", err)
 	}
 
+	// Set build environment variables
+	env := os.Environ()
+	env = append(env, "MOCHII_PREFIX="+dir)
+	env = append(env, "MOCHII_HASH="+h.String())
+	env = append(env, "MOCHII_SOURCES="+b.SourcesDir)
+	env = append(env, "MOCHII_INSTALL="+b.InstallDir)
+
+	// Check script type and run accordingly
+	if strings.HasSuffix(script, ".lua") {
+		return b.runLuaBuilder(script, dir, h, env)
+	}
+
+	// Default: run shell script
 	cmd := exec.Command(script)
 	cmd.Dir = dir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = f
 	cmd.Stderr = f
-
-	// Set build environment variables
-	env := os.Environ()
-	env = append(env, "MOCHII_PREFIX="+dir)
-	env = append(env, "MOCHII_HASH="+h.String())
 	cmd.Env = env
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("builder failed: %w", err)
+	}
+
+	return nil
+}
+
+// runLuaBuilder executes a Lua builder script with mochii primitives.
+func (b *Builder) runLuaBuilder(script, dir string, h hasher.Hash, env []string) error {
+	lx := lua.New()
+
+	// Set environment from builder
+	for _, e := range env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) == 2 {
+			lx.SetEnv(parts[0], parts[1])
+		}
+	}
+
+	// Add sources directory
+	lx.SetEnv("MOCHII_SOURCES", b.SourcesDir)
+	lx.SetEnv("MOCHII_INSTALL", b.InstallDir)
+
+	// Run the Lua script
+	if err := lx.RunScript(script, dir); err != nil {
+		return fmt.Errorf("lua builder failed: %w", err)
 	}
 
 	return nil
