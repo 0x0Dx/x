@@ -1,7 +1,14 @@
+// Package main is the entry point for gitx.
 package main
 
-import "github.com/0x0Dx/x/gitx/cmd"
+import (
+	"os"
+
+	"github.com/0x0Dx/x/gitx/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

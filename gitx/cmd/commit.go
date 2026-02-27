@@ -1,3 +1,4 @@
+// Package cmd provides gitx commands.
 package cmd
 
 import (

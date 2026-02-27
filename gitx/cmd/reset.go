@@ -1,9 +1,11 @@
+// Package cmd provides gitx commands.
 package cmd
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 
 	"github.com/spf13/cobra"
 )
@@ -28,12 +30,20 @@ var undoCmd = &cobra.Command{
 			return
 		}
 
+		var validRef = regexp.MustCompile(`^[a-zA-Z0-9./\-_]+$`)
+
 		mode := "soft"
 		if hard {
 			mode = "hard"
 		}
 
-		cmd := exec.Command("git", "reset", "--"+mode, args[0])
+		commit := args[0]
+		if !validRef.MatchString(commit) {
+			fmt.Fprintln(os.Stderr, "Error: invalid commit reference")
+			os.Exit(1)
+		}
+
+		cmd := exec.Command("git", "reset", "--"+mode, commit)
 		cmd.Stdin = nil
 		cmd.Stdout = nil
 		cmd.Stderr = nil
@@ -41,7 +51,7 @@ var undoCmd = &cobra.Command{
 			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
-		fmt.Println("✓ Reset to", args[0], "["+mode+"]")
+		fmt.Println("✓ Reset to", commit, "["+mode+"]")
 	},
 }
 

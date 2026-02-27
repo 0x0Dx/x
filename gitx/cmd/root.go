@@ -1,3 +1,4 @@
+// Package cmd provides gitx commands.
 package cmd
 
 import (
@@ -12,5 +13,9 @@ var RootCmd = &cobra.Command{
 
 // Execute runs the root command.
 func Execute() error {
-	return RootCmd.Execute()
+	err := RootCmd.Execute()
+	if err != nil {
+		return err
+	}
+	return nil
 }
