@@ -57,6 +57,12 @@ tasks:
     desc: Build all binaries
     cmds:
       - rm -rf ./bin && mkdir ./bin
-      - cd cliimage && go build -o ../bin/cliimage .
-      - cd goserv && go build -o ../bin/goserv .
-      - cd gitx && go build -o ../bin/gitx .
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && go build -o ../bin/{{.ITEM}} .
+
+  install:
+    desc: Install all binaries
+    cmds:
+      - rm -rf ./bin && mkdir ./bin
+      - for: { var: PACKAGES }
+        cmd: cd {{.ITEM}} && go build -o ../bin/{{.ITEM}} .

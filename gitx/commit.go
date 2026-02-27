@@ -45,37 +45,7 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-var branchCmd = &cobra.Command{
-	Use:   "br [-d <branch>]",
-	Short: "List or delete branches",
-	Run: func(cc *cobra.Command, _ []string) {
-		deleteBranch, _ := cc.Flags().GetString("delete")
-
-		if deleteBranch != "" {
-			cmd := exec.Command("git", "branch", "-D", deleteBranch)
-			cmd.Stdout = nil
-			cmd.Stderr = nil
-			if err := cmd.Run(); err != nil {
-				fmt.Fprintln(os.Stderr, "Error:", err)
-				os.Exit(1)
-			}
-			fmt.Println("✓ Deleted branch:", deleteBranch)
-			return
-		}
-
-		cmd := exec.Command("git", "branch")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Error:", err)
-			os.Exit(1)
-		}
-	},
-}
-
 func init() {
-	branchCmd.Flags().StringP("delete", "d", "", "Delete a branch")
 	rootCmd.AddCommand(commitCmd)
 	rootCmd.AddCommand(statusCmd)
-	rootCmd.AddCommand(branchCmd)
 }
