@@ -19,6 +19,9 @@ go install github.com/0x0Dx/x/gitx@main
 | `gitx br -d <branch>` | Delete a branch |
 | `gitx ci <msg>` | Stage all and commit |
 | `gitx st` | Show status |
+| `gitx undo` | Amend last commit |
+| `gitx undo <commit>` | Reset to commit |
+| `gitx undo --hard <commit>` | Hard reset to commit |
 | `gitx push` | Push to remote |
 | `gitx pull` | Pull from remote |
 | `gitx sync` | Pull, rebase, push |
