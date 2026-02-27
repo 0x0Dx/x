@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Hash computes the NAR hash of a directory.
@@ -185,18 +186,21 @@ func safeExtractPath(dest, name string) (string, error) {
 	}
 
 	candidate := filepath.Join(destAbs, name)
-	targetAbs, err := filepath.Abs(candidate)
+		safePath, err := safeJoinWithinRoot(dest, header.Name)
+		if err != nil {
+			return fmt.Errorf("invalid archive path %q: %w", header.Name, err)
+		}
 	if err != nil {
 		return "", fmt.Errorf("resolve target path: %w", err)
 	}
-
+			if err := os.MkdirAll(safePath, 0755); err != nil {
 	rel, err := filepath.Rel(destAbs, targetAbs)
 	if err != nil {
 		return "", fmt.Errorf("rel path: %w", err)
-	}
+			if err := os.MkdirAll(filepath.Dir(safePath), 0755); err != nil {
 	// If rel starts with "..", the target is outside dest.
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("archive entry %q would escape destination", name)
+			f, err := os.Create(safePath)
 	}
 
 	return targetAbs, nil
@@ -205,12 +209,45 @@ func safeExtractPath(dest, name string) (string, error) {
 // Extract extracts the NAR archive to a directory.
 func (nr *Reader) Extract(dest string) error {
 	for {
-		header, err := nr.r.Next()
+			os.Chmod(safePath, header.FileInfo().Mode())
 		if err == io.EOF {
-			break
+			if err := os.MkdirAll(filepath.Dir(safePath), 0755); err != nil {
 		}
 		if err != nil {
-			return fmt.Errorf("read next: %w", err)
+			if err := os.Symlink(header.Linkname, safePath); err != nil {
+				return fmt.Errorf("create symlink: %w", err)
+			}
+
+// safeJoinWithinRoot joins root and candidate and ensures that the resulting path,
+// after resolving any existing symlinks, stays within root.
+func safeJoinWithinRoot(root, candidate string) (string, error) {
+	if filepath.IsAbs(candidate) {
+		return "", fmt.Errorf("absolute paths are not allowed")
+	}
+	joined := filepath.Join(root, candidate)
+	cleaned := filepath.Clean(joined)
+	// Resolve symlinks to account for previously-extracted entries.
+	realpath, err := filepath.EvalSymlinks(cleaned)
+	if err != nil {
+		// If the path (or its parents) doesn't exist yet, fall back to using the cleaned path,
+		// but still enforce that it is syntactically within root.
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		realpath = cleaned
+	}
+
+	rel, err := filepath.Rel(root, realpath)
+	if err != nil {
+		return "", err
+	}
+	rel = filepath.Clean(rel)
+	if rel == ".." || strings.HasPrefix(rel, fmt.Sprintf("..%c", os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes root")
+	}
+
+	return realpath, nil
+}
 		}
 
 		// Skip special files
