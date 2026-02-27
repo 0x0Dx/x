@@ -1,16 +1,11 @@
-# x
+# 0x0D's experimental packages
 
 Monorepo containing Go CLI tools.
 
 ## Projects
 
-### [cliimage](./cliimage)
-
-Terminal image viewer that renders images using Unicode block characters with ANSI colors.
-
-### [goserv](./goserv)
-
-Simple HTTP file server.
+### [cliimage](./cliimage) Terminal image viewer that renders images using Unicode block characters with ANSI colors.
+### [goserv](./goserv) Simple HTTP file server.
 
 ## Installation
 
