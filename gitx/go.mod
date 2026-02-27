@@ -1,4 +1,4 @@
-module github.com/0x0Dx/x/go/gitx
+module github.com/0x0Dx/x/gitx
 
 go 1.25.7
 

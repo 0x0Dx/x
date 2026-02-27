@@ -9,7 +9,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/0x0Dx/x/go/cliimage/internal/blocks"
+	"github.com/0x0Dx/x/cliimage/internal/blocks"
 	"github.com/charmbracelet/x/ansi"
 	xdraw "golang.org/x/image/draw"
 )

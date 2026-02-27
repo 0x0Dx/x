@@ -5,7 +5,7 @@ A simple, opinionated git wrapper.
 ## Installation
 
 ```bash
-go install github.com/0x0Dx/x/go/gitx@main
+go install github.com/0x0Dx/x/gitx@main
 ```
 
 ## Commands
