@@ -65,13 +65,19 @@ func (d *DB) Get(table, key string) (string, bool, error) {
 // Set inserts or updates a key-value pair in a table.
 func (d *DB) Set(table, key, value string) error {
 	_, err := d.Exec(fmt.Sprintf("INSERT OR REPLACE INTO %s (key, value) VALUES (?, ?)", table), key, value)
-	return fmt.Errorf("exec set: %w", err)
+	if err != nil {
+		return fmt.Errorf("exec set: %w", err)
+	}
+	return nil
 }
 
 // Delete removes a key from a table.
 func (d *DB) Delete(table, key string) error {
 	_, err := d.Exec(fmt.Sprintf("DELETE FROM %s WHERE key = ?", table), key)
-	return fmt.Errorf("exec delete: %w", err)
+	if err != nil {
+		return fmt.Errorf("exec delete: %w", err)
+	}
+	return nil
 }
 
 // List returns all key-value pairs from a table.
