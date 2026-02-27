@@ -3,9 +3,10 @@ version: '3'
 
 vars:
   PACKAGES:
-    - go/cliimage
-    - go/goserv
-    - go/gitx
+    - cliimage
+    - goserv
+    - gitx
+    - goblock
   PLATFORMS:
     - linux/amd64
     - linux/arm64
@@ -56,8 +57,7 @@ tasks:
       - rm -rf ./bin && mkdir ./bin
       - for: { var: PACKAGES }
         cmd: |
-          NAME=$(basename {{.ITEM}})
-          cd {{.ITEM}} && go build -o ../../bin/$NAME .
+          cd {{.ITEM}} && go build -o ../bin/{{.ITEM}} .
 
   install:
     desc: Install all binaries to $GOPATH/bin
@@ -73,7 +73,7 @@ tasks:
       - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 
   release:
-    desc: Build release artifacts (usage: task release VERSION=v1.0.0)
+    desc: "Build release artifacts (usage: task release VERSION=v1.0.0)"
     vars:
       VERSION: '{{.VERSION | default "dev"}}'
     cmds:
@@ -81,7 +81,7 @@ tasks:
       - task: _release:binaries
       - task: _release:checksums
       - echo "Release {{.VERSION}} built in ./dist"
-      - echo "Publish with: gh release create {{.VERSION}} dist/*"
+      - 'echo "Publish with: gh release create {{.VERSION}} dist/*"'
 
   _release:binaries:
     internal: true
@@ -115,9 +115,9 @@ tasks:
           cd {{.ITEM}}
           CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} \
             go build -ldflags="-s -w -X main.version={{.VERSION}}" \
-            -o ../../$OUTPUT .
+            -o ../$OUTPUT .
           
-          cd ../../dist
+          cd ../dist
           if [[ "{{.GOOS}}" == "windows" ]]; then
             zip "${ARCHIVE}.zip" "$(basename $OUTPUT)"
           else
@@ -131,7 +131,7 @@ tasks:
       - cd dist && shasum -a 256 *.{tar.gz,zip} > checksums.txt 2>/dev/null || true
 
   release:publish:
-    desc: Publish release to GitHub (usage: task release:publish VERSION=v1.0.0)
+    desc: "Publish release to GitHub (usage: task release:publish VERSION=v1.0.0)"
     vars:
       VERSION: '{{.VERSION | default "dev"}}'
     preconditions:

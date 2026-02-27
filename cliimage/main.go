@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/0x0Dx/x/go/cliimage/internal/blocks"
-	"github.com/0x0Dx/x/go/cliimage/internal/config"
-	"github.com/0x0Dx/x/go/cliimage/internal/renderer"
+	"github.com/0x0Dx/x/cliimage/internal/blocks"
+	"github.com/0x0Dx/x/cliimage/internal/config"
+	"github.com/0x0Dx/x/cliimage/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
