@@ -147,8 +147,8 @@ func (b *Builder) install(h hasher.Hash) error {
 
 	fmt.Printf("building %s\n", h)
 
-	// Try prebuilt first if available
 	prebuilt, ok, err := b.GetPrebuilt(h)
+	//nolint:nestif
 	if err == nil && ok {
 		fmt.Printf("trying prebuilt %s\n", prebuilt)
 		src, err := b.GetFile(hasher.Hash(prebuilt))
@@ -488,14 +488,9 @@ func (b *Builder) RegisterFile(path string) (hasher.Hash, error) {
 
 	srcPath := b.SourcesDir + "/" + h.String()
 
-	// Check if file already exists
 	_, err = os.Stat(srcPath)
-	if err == nil {
-		// File already exists, no need to copy
-	} else if !os.IsNotExist(err) {
-		return "", fmt.Errorf("stat src path: %w", err)
-	} else {
-		// File doesn't exist, copy it
+	//nolint:nestif
+	if err != nil && os.IsNotExist(err) {
 		if err := helper.EnsureDir(b.SourcesDir); err != nil {
 			return "", fmt.Errorf("ensure sources dir: %w", err)
 		}
@@ -517,6 +512,8 @@ func (b *Builder) RegisterFile(path string) (hasher.Hash, error) {
 		if err != nil {
 			return "", fmt.Errorf("copy file: %w", err)
 		}
+	} else if err != nil {
+		return "", fmt.Errorf("stat src path: %w", err)
 	}
 
 	if err := b.DB.Set(DBRefs, h.String(), srcPath); err != nil {

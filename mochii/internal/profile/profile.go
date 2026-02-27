@@ -1,3 +1,4 @@
+// Package profile manages profile generations.
 package profile
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/hasher"
 )
 
-// Package profile manages profile generations.
+// Profile manages profile generations.
 type Profile struct {
 	Path string
 }
@@ -35,10 +36,8 @@ func (p *Profile) Switch(h hasher.Hash, pkgPath string) error {
 		return fmt.Errorf("create profile dir: %w", err)
 	}
 
-	// Get next generation number
 	num := p.nextNum()
 
-	// Create generation directory
 	genDir := fmt.Sprintf("%s/%d", p.Path, num)
 	binDir := genDir + "/bin"
 
@@ -46,60 +45,66 @@ func (p *Profile) Switch(h hasher.Hash, pkgPath string) error {
 		return fmt.Errorf("create bin dir: %w", err)
 	}
 
-	// Symlink all executables from package to bin/
 	if err := symlinkExecutables(pkgPath, binDir); err != nil {
-		return err
+		return fmt.Errorf("symlink executables: %w", err)
 	}
 
-	// Store the package hash
 	hashFile := genDir + ".hash"
 	f, err := os.Create(hashFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("create hash file: %w", err)
 	}
-	fmt.Fprintf(f, "%s\n", h.String())
+	if _, err := fmt.Fprintf(f, "%s\n", h.String()); err != nil {
+		return fmt.Errorf("write hash: %w", err)
+	}
 	if err := f.Close(); err != nil {
-		return err
+		return fmt.Errorf("close hash file: %w", err)
 	}
 
-	// Atomically switch current generation
 	current := p.Path + "/current"
 	tmpLink := p.Path + "/new_current"
 
 	if err := os.Symlink(genDir, tmpLink); err != nil {
-		return err
+		return fmt.Errorf("symlink new current: %w", err)
 	}
 
 	if err := os.Rename(tmpLink, current); err != nil {
-		return err
+		return fmt.Errorf("rename current: %w", err)
 	}
 
-	// Clean up old generation
 	oldLink, err := os.Readlink(current)
 	if err == nil && oldLink != genDir {
-		os.RemoveAll(oldLink)
-		os.Remove(oldLink + ".hash")
+		if err := os.RemoveAll(oldLink); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: remove old link: %v\n", err)
+		}
+		if err := os.Remove(oldLink + ".hash"); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: remove old hash: %v\n", err)
+		}
 	}
 
 	fmt.Printf("switched to %s\n", current)
 	return nil
 }
 
-// symlinkExecutables creates symlinks to all executable files in a package.
 func symlinkExecutables(pkgPath, binDir string) error {
-	var link func(string, string) error = func(src, dst string) error {
+	link := func(src, dst string) error {
 		info, err := os.Lstat(dst)
 		if err == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
-				os.Remove(dst)
+				if err := os.Remove(dst); err != nil {
+					return fmt.Errorf("remove dst: %w", err)
+				}
 			}
 		}
-		return os.Symlink(src, dst)
+		if err := os.Symlink(src, dst); err != nil {
+			return fmt.Errorf("symlink: %w", err)
+		}
+		return nil
 	}
 
 	entries, err := os.ReadDir(pkgPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("read pkg dir: %w", err)
 	}
 
 	for _, e := range entries {
@@ -112,13 +117,15 @@ func symlinkExecutables(pkgPath, binDir string) error {
 				continue
 			}
 			if info.Mode()&0o111 != 0 && name != "builder" {
-				link(src, filepath.Join(binDir, name))
+				if err := link(src, filepath.Join(binDir, name)); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: link failed: %v\n", err)
+				}
 			}
 			continue
 		}
 
 		subdir := filepath.Join(binDir, name)
-		if err := os.MkdirAll(subdir, 0o755); err != nil {
+		if err := os.MkdirAll(subdir, 0o750); err != nil {
 			continue
 		}
 		subEntries, err := os.ReadDir(src)
@@ -136,7 +143,9 @@ func symlinkExecutables(pkgPath, binDir string) error {
 				continue
 			}
 			if info.Mode()&0o111 != 0 {
-				link(seSrc, filepath.Join(subdir, seName))
+				if err := link(seSrc, filepath.Join(subdir, seName)); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: link failed: %v\n", err)
+				}
 			}
 		}
 	}
@@ -144,32 +153,33 @@ func symlinkExecutables(pkgPath, binDir string) error {
 	return nil
 }
 
-// nextNum returns the next generation number.
 func (p *Profile) nextNum() int {
 	entries, err := os.ReadDir(p.Path)
 	if err != nil {
 		return 0
 	}
 
-	max := 0
+	maxNum := 0
 	for _, e := range entries {
 		name := e.Name()
 		if strings.HasSuffix(name, ".hash") {
 			var num int
-			fmt.Sscanf(name, "%d.hash", &num)
-			if num > max {
-				max = num
+			if _, err := fmt.Sscanf(name, "%d.hash", &num); err != nil {
+				continue
+			}
+			if num > maxNum {
+				maxNum = num
 			}
 		}
 	}
-	return max + 1
+	return maxNum + 1
 }
 
 // ListGenerations returns all profile generations, sorted by number.
 func (p *Profile) ListGenerations() ([]Generation, error) {
 	entries, err := os.ReadDir(p.Path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read profile dir: %w", err)
 	}
 
 	var gens []Generation
@@ -187,7 +197,9 @@ func (p *Profile) ListGenerations() ([]Generation, error) {
 			genPath := filepath.Join(p.Path, genName)
 
 			var num int
-			fmt.Sscanf(genName, "%d", &num)
+			if _, err := fmt.Sscanf(genName, "%d", &num); err != nil {
+				continue
+			}
 
 			gens = append(gens, Generation{
 				Num:  num,
@@ -210,7 +222,7 @@ func (p *Profile) Current() (string, error) {
 	current := p.Path + "/current"
 	link, err := os.Readlink(current)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("readlink current: %w", err)
 	}
 	return link + "/bin", nil
 }
@@ -219,13 +231,17 @@ func (p *Profile) Current() (string, error) {
 func (p *Profile) DeleteGeneration(num int) error {
 	gens, err := p.ListGenerations()
 	if err != nil {
-		return err
+		return fmt.Errorf("list generations: %w", err)
 	}
 
 	for _, g := range gens {
 		if g.Num == num {
-			os.Remove(g.Link)
-			os.Remove(g.Link + ".hash")
+			if err := os.Remove(g.Link); err != nil {
+				return fmt.Errorf("remove link: %w", err)
+			}
+			if err := os.Remove(g.Link + ".hash"); err != nil {
+				return fmt.Errorf("remove hash: %w", err)
+			}
 			return nil
 		}
 	}
