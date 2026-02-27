@@ -22,8 +22,8 @@ export MOCHII_HOME=$HOME/.mochii
 ./mochii getpkg abc123...
 # -> runs builder script, installs to $MOCHII_HOME/pkg/<hash>
 
-# 5. Switch to profile
-./mochii switch abc123... $MOCHII_HOME/pkg/abc123...
+# 5. Switch to profile (point to bin directory, not the package root)
+./mochii switch abc123... $MOCHII_HOME/pkg/abc123.../bin
 
 # 6. Add to PATH
 export PATH=$MOCHII_HOME/profiles/current/bin:$PATH
@@ -146,10 +146,11 @@ When a prebuilt exists for a package, `getpkg` will use it instead of building.
 
 1. Check if package already installed
 2. Try prebuilt if available
-3. Download/fetch source from refs/netsources
-4. Extract source to build directory
+3. Fetch source from `sources/` directory (or download if from URL)
+4. Extract source to temp directory
 5. Run builder script
-6. Register installed path
+6. Copy result to `pkg/<hash>/`
+7. Register installed path
 
 ### Profile
 
@@ -188,7 +189,7 @@ Check build logs: `ls $MOCHII_HOME/logs/`
 Ensure `$MOCHII_HOME/profiles/current/bin` is in your PATH:
 ```bash
 export MOCHII_HOME=$HOME/.mochii
-export PATH=$MOCHII_HOME/profiles/current/bin:$PATH
+export PATH=$PATH:$MOCHII_HOME/profiles/current/bin
 ```
 
 **"no garbage to collect" but disk is full:**
