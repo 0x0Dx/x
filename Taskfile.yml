@@ -6,6 +6,7 @@ vars:
   PACKAGES: [
     cliimage,
     goserv,
+    gitx,
   ]
 
 tasks:
@@ -58,3 +59,4 @@ tasks:
       - rm -rf ./bin && mkdir ./bin
       - cd cliimage && go build -o ../bin/cliimage .
       - cd goserv && go build -o ../bin/goserv .
+      - cd gitx && go build -o ../bin/gitx .
