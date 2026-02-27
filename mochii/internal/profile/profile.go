@@ -10,28 +10,35 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/hash"
 )
 
+// Profile manages profile generations.
 type Profile struct {
 	Path string
 }
 
+// New creates a new Profile at the given path.
 func New(path string) *Profile {
 	return &Profile{Path: path}
 }
 
+// Generation represents a single profile generation.
 type Generation struct {
 	Num  int
-	Link string
-	Hash string
-	Path string
+	Link string // Path to generation directory
+	Hash string // Package hash
+	Path string // Package path
 }
 
+// Switch creates a new generation pointing to a package.
+// Creates symlinks to all executables in the package's bin directory.
 func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
 	if err := os.MkdirAll(p.Path, 0755); err != nil {
 		return err
 	}
 
+	// Get next generation number
 	num := p.nextNum()
 
+	// Create generation directory
 	genDir := fmt.Sprintf("%s/%d", p.Path, num)
 	binDir := genDir + "/bin"
 
@@ -39,18 +46,23 @@ func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
 		return err
 	}
 
+	// Symlink all executables from package to bin/
 	if err := symlinkExecutables(pkgPath, binDir); err != nil {
 		return err
 	}
 
+	// Store the package hash
 	hashFile := genDir + ".hash"
 	f, err := os.Create(hashFile)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(f, "%s\n", h.String())
-	f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
 
+	// Atomically switch current generation
 	current := p.Path + "/current"
 	tmpLink := p.Path + "/new_current"
 
@@ -62,6 +74,7 @@ func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
 		return err
 	}
 
+	// Clean up old generation
 	oldLink, err := os.Readlink(current)
 	if err == nil && oldLink != genDir {
 		os.RemoveAll(oldLink)
@@ -72,6 +85,7 @@ func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
 	return nil
 }
 
+// symlinkExecutables creates symlinks to all executable files in a package.
 func symlinkExecutables(pkgPath, binDir string) error {
 	var link func(string, string) error
 	link = func(src, dst string) error {
@@ -94,6 +108,7 @@ func symlinkExecutables(pkgPath, binDir string) error {
 		src := filepath.Join(pkgPath, name)
 
 		if e.IsDir() {
+			// Handle subdirectories - link executables inside them
 			subdir := filepath.Join(binDir, name)
 			if err := os.MkdirAll(subdir, 0755); err != nil {
 				continue
@@ -118,6 +133,7 @@ func symlinkExecutables(pkgPath, binDir string) error {
 			continue
 		}
 
+		// Link executable files (skip builder)
 		info, err := e.Info()
 		if err != nil {
 			continue
@@ -130,6 +146,7 @@ func symlinkExecutables(pkgPath, binDir string) error {
 	return nil
 }
 
+// nextNum returns the next generation number.
 func (p *Profile) nextNum() int {
 	entries, err := os.ReadDir(p.Path)
 	if err != nil {
@@ -150,6 +167,7 @@ func (p *Profile) nextNum() int {
 	return max + 1
 }
 
+// ListGenerations returns all profile generations, sorted by number.
 func (p *Profile) ListGenerations() ([]Generation, error) {
 	entries, err := os.ReadDir(p.Path)
 	if err != nil {
@@ -189,6 +207,7 @@ func (p *Profile) ListGenerations() ([]Generation, error) {
 	return gens, nil
 }
 
+// Current returns the path to the current generation's bin directory.
 func (p *Profile) Current() (string, error) {
 	current := p.Path + "/current"
 	link, err := os.Readlink(current)
@@ -198,6 +217,7 @@ func (p *Profile) Current() (string, error) {
 	return link + "/bin", nil
 }
 
+// DeleteGeneration removes a profile generation.
 func (p *Profile) DeleteGeneration(num int) error {
 	gens, err := p.ListGenerations()
 	if err != nil {

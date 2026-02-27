@@ -12,15 +12,18 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/util"
 )
 
+// Config holds mochii configuration paths.
 type Config struct {
-	HomeDir      string
-	SourcesDir   string
-	LogDir       string
-	DBPath       string
-	ProfileDir   string
-	PrebuiltsDir string
+	HomeDir      string // Root mochii directory
+	SourcesDir   string // Source tarballs
+	LogDir       string // Build logs
+	DBPath       string // SQLite database
+	ProfileDir   string // Profile generations
+	PrebuiltsDir string // Prebuilt packages
 }
 
+// DefaultConfig creates a Config with default paths.
+// Uses MOCHII_HOME env var or /var/mochii as base.
 func DefaultConfig() *Config {
 	home := util.Getenv("MOCHII_HOME", "/var/mochii")
 	return &Config{
@@ -33,6 +36,7 @@ func DefaultConfig() *Config {
 	}
 }
 
+// EnsureDirs creates all required directories.
 func EnsureDirs(cfg *Config) error {
 	dirs := []string{cfg.HomeDir, cfg.SourcesDir, cfg.LogDir, cfg.ProfileDir, cfg.PrebuiltsDir}
 	for _, d := range dirs {
@@ -43,6 +47,7 @@ func EnsureDirs(cfg *Config) error {
 	return nil
 }
 
+// CLI wraps all mochii components.
 type CLI struct {
 	cfg      *Config
 	db       *db.DB
@@ -51,6 +56,7 @@ type CLI struct {
 	prebuilt *prebuilts.Prebuilt
 }
 
+// New creates a new CLI with initialized components.
 func New() (*CLI, error) {
 	cfg := DefaultConfig()
 
@@ -70,10 +76,12 @@ func New() (*CLI, error) {
 	return &CLI{cfg, database, b, p, pre}, nil
 }
 
+// Close closes the CLI and underlying resources.
 func (c *CLI) Close() error {
 	return c.db.Close()
 }
 
+// GetPkg builds and installs a package by hash.
 func (c *CLI) GetPkg(h string) error {
 	hash, err := hash.Parse(h)
 	if err != nil {
@@ -89,6 +97,7 @@ func (c *CLI) GetPkg(h string) error {
 	return nil
 }
 
+// Run executes an installed package.
 func (c *CLI) Run(h string, args []string) error {
 	hash, err := hash.Parse(h)
 	if err != nil {
@@ -98,6 +107,7 @@ func (c *CLI) Run(h string, args []string) error {
 	return c.builder.Run(hash, args)
 }
 
+// Delete removes an installed package.
 func (c *CLI) Delete(h string) error {
 	hash, err := hash.Parse(h)
 	if err != nil {
@@ -107,6 +117,7 @@ func (c *CLI) Delete(h string) error {
 	return c.builder.Delete(hash)
 }
 
+// ListInstalled lists all installed packages.
 func (c *CLI) ListInstalled() error {
 	pkgs, err := c.builder.ListInstalled()
 	if err != nil {
@@ -120,6 +131,7 @@ func (c *CLI) ListInstalled() error {
 	return nil
 }
 
+// RegisterFile registers a source file by hash.
 func (c *CLI) RegisterFile(path string) error {
 	h, err := c.builder.RegisterFile(path)
 	if err != nil {
@@ -130,6 +142,7 @@ func (c *CLI) RegisterFile(path string) error {
 	return nil
 }
 
+// RegisterURL registers a network URL for a package hash.
 func (c *CLI) RegisterURL(hStr, url string) error {
 	h, err := hash.Parse(hStr)
 	if err != nil {
@@ -139,11 +152,13 @@ func (c *CLI) RegisterURL(hStr, url string) error {
 	return c.builder.RegisterURL(h, url)
 }
 
+// Fetch fetches a URL (not fully implemented).
 func (c *CLI) Fetch(url string) error {
 	fmt.Println(url)
 	return nil
 }
 
+// Verify checks that all installed packages still exist.
 func (c *CLI) Verify() error {
 	pkgs, err := c.builder.ListInstalled()
 	if err != nil {
@@ -162,6 +177,7 @@ func (c *CLI) Verify() error {
 	return nil
 }
 
+// SwitchProfile switches to a package in the profile.
 func (c *CLI) SwitchProfile(h, pkgPath string) error {
 	hash, err := hash.Parse(h)
 	if err != nil {
@@ -171,6 +187,7 @@ func (c *CLI) SwitchProfile(h, pkgPath string) error {
 	return c.profiler.Switch(hash, pkgPath)
 }
 
+// ListProfiles lists all profile generations.
 func (c *CLI) ListProfiles() error {
 	gens, err := c.profiler.ListGenerations()
 	if err != nil {
@@ -190,6 +207,7 @@ func (c *CLI) ListProfiles() error {
 	return nil
 }
 
+// CollectGarbage removes packages not referenced by any profile.
 func (c *CLI) CollectGarbage() error {
 	toDelete, err := c.builder.CollectGarbage(c.cfg.ProfileDir)
 	if err != nil {
@@ -216,15 +234,18 @@ func (c *CLI) CollectGarbage() error {
 	return nil
 }
 
+// PullPrebuilts pulls prebuilt packages from URLs.
 func (c *CLI) PullPrebuilts(urls []string) error {
 	config := &prebuilts.PrebuiltConfig{URLs: urls}
 	return c.prebuilt.Pull(config)
 }
 
+// PushPrebuilts exports installed packages as prebuilts.
 func (c *CLI) PushPrebuilts(exportDir string) error {
 	return c.prebuilt.Push(exportDir)
 }
 
+// PrintUsage prints the CLI usage message.
 func PrintUsage() {
 	fmt.Fprintf(os.Stderr, `Usage: mochii COMMAND [OPTIONS]...
 

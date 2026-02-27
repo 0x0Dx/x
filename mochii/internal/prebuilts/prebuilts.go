@@ -14,19 +14,23 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/hash"
 )
 
+// Prebuilt handles pulling and pushing binary substitutes.
 type Prebuilt struct {
 	Builder *build.Builder
-	Dir     string
+	Dir     string // Local prebuilts directory
 }
 
+// New creates a new Prebuilt handler.
 func New(b *build.Builder, dir string) *Prebuilt {
 	return &Prebuilt{Builder: b, Dir: dir}
 }
 
+// PrebuiltConfig holds configuration for pulling prebuilts.
 type PrebuiltConfig struct {
-	URLs []string
+	URLs []string // URLs or directories to pull from
 }
 
+// PrebuiltEntry represents a prebuilt package entry.
 type PrebuiltEntry struct {
 	Filename  string
 	URL       string
@@ -35,6 +39,7 @@ type PrebuiltEntry struct {
 	Hash      string
 }
 
+// Pull fetches prebuilt packages from URLs or directories.
 func (p *Prebuilt) Pull(config *PrebuiltConfig) error {
 	if err := os.MkdirAll(p.Dir, 0755); err != nil {
 		return err
@@ -49,13 +54,16 @@ func (p *Prebuilt) Pull(config *PrebuiltConfig) error {
 	return nil
 }
 
+// pullFromURL fetches prebuilt index from a URL or local directory.
 func (p *Prebuilt) pullFromURL(url string) error {
 	fmt.Printf("obtaining prebuilt list from %s...\n", url)
 
+	// Handle local directories
 	if strings.HasPrefix(url, "/") {
 		return p.pullFromDir(url)
 	}
 
+	// Download index file
 	tmpFile := p.Dir + "/prebuilts.tmp"
 
 	cmd := exec.Command("wget", "-q", "-O", tmpFile, url)
@@ -68,6 +76,7 @@ func (p *Prebuilt) pullFromURL(url string) error {
 		return err
 	}
 
+	// Parse HTML for links matching pattern: name-HASH-HASH.tar.bz2
 	re := regexp.MustCompile(`href="([^"]*-([[:xdigit:]]{32})-([[:xdigit:]]{32})\.tar\.bz2)"`)
 	matches := re.FindAllStringSubmatch(string(data), -1)
 
@@ -76,6 +85,7 @@ func (p *Prebuilt) pullFromURL(url string) error {
 		baseURL += "/"
 	}
 
+	// Register each prebuilt
 	for _, m := range matches {
 		if len(m) < 4 {
 			continue
@@ -115,12 +125,14 @@ func (p *Prebuilt) pullFromURL(url string) error {
 	return nil
 }
 
+// pullFromDir reads prebuilt packages from a local directory.
 func (p *Prebuilt) pullFromDir(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
+	// Match files: name-HASH-HASH.tar.bz2
 	re := regexp.MustCompile(`^(.+)-([[:xdigit:]]{32})-([[:xdigit:]]{32})\.tar\.bz2$`)
 
 	for _, e := range entries {
@@ -148,6 +160,7 @@ func (p *Prebuilt) pullFromDir(dir string) error {
 	return nil
 }
 
+// Push exports installed packages that don't have prebuilts.
 func (p *Prebuilt) Push(exportDir string) error {
 	if err := os.MkdirAll(exportDir, 0755); err != nil {
 		return err
@@ -163,6 +176,7 @@ func (p *Prebuilt) Push(exportDir string) error {
 		return err
 	}
 
+	// Export packages without prebuilts
 	for pkgHash := range installed {
 		if _, ok := prebuilts[pkgHash]; !ok {
 			fmt.Printf("exporting %s...\n", pkgHash)
@@ -186,12 +200,15 @@ func (p *Prebuilt) Push(exportDir string) error {
 	return nil
 }
 
+// fetchURL downloads a file from a URL (not currently used).
 func fetchURL(url, dest string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		return err
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -201,7 +218,9 @@ func fetchURL(url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	if err := out.Close(); err != nil {
+		return err
+	}
 
 	_, err = io.Copy(out, resp.Body)
 	return err

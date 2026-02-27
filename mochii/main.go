@@ -7,12 +7,15 @@ import (
 	"github.com/0x0Dx/x/mochii/cmd"
 )
 
+// main is the entry point for the mochii CLI.
 func main() {
+	// Show usage if no command provided
 	if len(os.Args) < 2 {
 		cmd.PrintUsage()
 		os.Exit(1)
 	}
 
+	// Initialize CLI
 	cli, err := cmd.New()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -22,6 +25,7 @@ func main() {
 
 	var exitCode int
 
+	// Route commands
 	switch os.Args[1] {
 	case "init":
 		fmt.Println("initialized")

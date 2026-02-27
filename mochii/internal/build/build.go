@@ -13,13 +13,15 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/util"
 )
 
+// Database table names
 const (
-	DBRefs       = "refs"
-	DBInstPkgs   = "pkginst"
-	DBPrebuilts  = "prebuilts"
-	DBNetSources = "netsources"
+	DBRefs       = "refs"       // Source file locations (hash -> path)
+	DBInstPkgs   = "pkginst"    // Installed packages (hash -> path)
+	DBPrebuilts  = "prebuilts"  // Binary substitutes (pkg-hash -> prebuilt-hash)
+	DBNetSources = "netsources" // Network URLs (hash -> URL)
 )
 
+// Package represents metadata about a package.
 type Package struct {
 	ID     string
 	Build  string
@@ -29,15 +31,18 @@ type Package struct {
 	Hash   hash.Hash
 }
 
+// Environment holds environment variables for builds.
 type Environment map[string]string
 
+// Builder handles package building and installation.
 type Builder struct {
 	DB         *db.DB
-	SourcesDir string
-	InstallDir string
-	LogDir     string
+	SourcesDir string // Where source tarballs are stored
+	InstallDir string // Where built packages are installed
+	LogDir     string // Where build logs are stored
 }
 
+// New creates a new Builder with the given directories.
 func New(db *db.DB, sourcesDir, installDir, logDir string) *Builder {
 	return &Builder{
 		DB:         db,
@@ -47,8 +52,11 @@ func New(db *db.DB, sourcesDir, installDir, logDir string) *Builder {
 	}
 }
 
+// GetFile returns the path to a source file given its hash.
+// First checks local refs, then tries to fetch from network sources.
 func (b *Builder) GetFile(h hash.Hash) (string, error) {
 	for {
+		// Check if we have a local reference
 		if fn, ok, err := b.DB.Get(DBRefs, h.String()); err == nil && ok {
 			if !util.FileExists(fn) {
 				return "", util.Errorf("file %s does not exist", fn)
@@ -56,6 +64,7 @@ func (b *Builder) GetFile(h hash.Hash) (string, error) {
 			return fn, nil
 		}
 
+		// Try to find a network source
 		url, ok, err := b.DB.Get(DBNetSources, h.String())
 		if err != nil {
 			return "", err
@@ -64,17 +73,20 @@ func (b *Builder) GetFile(h hash.Hash) (string, error) {
 			return "", util.Errorf("file with hash %s not found", h)
 		}
 
+		// Fetch from URL
 		fn, err := b.fetchURL(url)
 		if err != nil {
 			return "", err
 		}
 
+		// Cache the reference locally
 		if err := b.DB.Set(DBRefs, h.String(), fn); err != nil {
 			return "", err
 		}
 	}
 }
 
+// fetchURL downloads a file using wget.
 func (b *Builder) fetchURL(url string) (string, error) {
 	filename := util.BaseNameOf(url)
 	fullname := b.SourcesDir + "/" + filename
@@ -103,7 +115,9 @@ func (b *Builder) fetchURL(url string) (string, error) {
 	return fullname, nil
 }
 
+// Install builds and installs a package, returning the installation path.
 func (b *Builder) Install(h hash.Hash) (string, error) {
+	// Check if already installed
 	path, _, err := b.DB.Get(DBInstPkgs, h.String())
 	if err == nil && path != "" {
 		return path, nil
@@ -116,6 +130,11 @@ func (b *Builder) Install(h hash.Hash) (string, error) {
 	return b.InstallDir + "/" + h.String(), nil
 }
 
+// install performs the actual build process:
+// 1. Try prebuilt if available
+// 2. Fetch and extract source
+// 3. Run builder script
+// 4. Copy to install directory
 func (b *Builder) install(h hash.Hash) error {
 	if err := util.EnsureDir(b.InstallDir); err != nil {
 		return err
@@ -127,6 +146,7 @@ func (b *Builder) install(h hash.Hash) error {
 
 	fmt.Printf("building %s\n", h)
 
+	// Try prebuilt first if available
 	if prebuilt, ok, err := b.GetPrebuilt(h); err == nil && ok {
 		fmt.Printf("trying prebuilt %s\n", prebuilt)
 		src, err := b.GetFile(hash.Hash(prebuilt))
@@ -141,11 +161,13 @@ func (b *Builder) install(h hash.Hash) error {
 		}
 	}
 
+	// Fetch source
 	srcFile, err := b.GetFile(h)
 	if err != nil {
 		return err
 	}
 
+	// Create temporary build directory
 	buildDir, err := os.MkdirTemp("", "mochii-build-")
 	if err != nil {
 		return err
@@ -154,15 +176,18 @@ func (b *Builder) install(h hash.Hash) error {
 		return err
 	}
 
+	// Extract source
 	if err := b.extractTarball(srcFile, buildDir); err != nil {
 		return err
 	}
 
+	// If tarball contains single directory, use that
 	realBuildDir := findPackageDir(buildDir)
 	if realBuildDir != "" {
 		buildDir = realBuildDir
 	}
 
+	// Run builder script if present
 	buildScript := buildDir + "/builder"
 	if util.FileExists(buildScript) {
 		if err := b.runBuilder(buildScript, buildDir, h); err != nil {
@@ -170,11 +195,13 @@ func (b *Builder) install(h hash.Hash) error {
 		}
 	}
 
+	// Move to final location
 	installedDir := b.InstallDir + "/" + h.String()
 	if err := os.RemoveAll(installedDir); err != nil {
 		return err
 	}
 	if err := os.Rename(buildDir, installedDir); err != nil {
+		// Fall back to copying if rename fails (cross-device)
 		if err := copyDir(buildDir, installedDir); err != nil {
 			return err
 		}
@@ -186,6 +213,8 @@ func (b *Builder) install(h hash.Hash) error {
 	return b.DB.Set(DBInstPkgs, h.String(), installedDir)
 }
 
+// findPackageDir checks if a directory contains exactly one subdirectory
+// and returns that path (common after tarball extraction).
 func findPackageDir(dir string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -206,6 +235,7 @@ func findPackageDir(dir string) string {
 	return ""
 }
 
+// copyDir recursively copies a directory.
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -248,12 +278,14 @@ func copyDir(src, dst string) error {
 	})
 }
 
+// extractTarball extracts a tarball to a destination directory.
 func (b *Builder) extractTarball(src, dest string) error {
 	fmt.Printf("extracting %s to %s\n", src, dest)
 
 	ext := filepath.Ext(src)
 	var cmd *exec.Cmd
 
+	// Support various compression formats
 	if ext == ".gz" || filepath.Ext(src) == ".tgz" {
 		cmd = exec.Command("tar", "xzf", src, "-C", dest)
 	} else if ext == ".bz2" {
@@ -274,6 +306,7 @@ func (b *Builder) extractTarball(src, dest string) error {
 	return nil
 }
 
+// runBuilder executes the builder script with appropriate environment.
 func (b *Builder) runBuilder(script, dir string, h hash.Hash) error {
 	fmt.Printf("running builder %s\n", script)
 
@@ -295,6 +328,7 @@ func (b *Builder) runBuilder(script, dir string, h hash.Hash) error {
 	cmd.Stdout = f
 	cmd.Stderr = f
 
+	// Set build environment variables
 	env := os.Environ()
 	env = append(env, "MOCHII_PREFIX="+dir)
 	env = append(env, "MOCHII_HASH="+h.String())
@@ -307,6 +341,7 @@ func (b *Builder) runBuilder(script, dir string, h hash.Hash) error {
 	return nil
 }
 
+// Run executes an installed package with the given arguments.
 func (b *Builder) Run(h hash.Hash, args []string) error {
 	path, _, err := b.DB.Get(DBInstPkgs, h.String())
 	if err != nil || path == "" {
@@ -328,6 +363,8 @@ func (b *Builder) Run(h hash.Hash, args []string) error {
 	return cmd.Run()
 }
 
+// findExecutable searches for an executable file in a directory tree.
+// Skips "builder" script, falls back to it if no other executable found.
 func findExecutable(dir string) (string, error) {
 	var search func(d string, allowBuilder bool) (string, error)
 	search = func(d string, allowBuilder bool) (string, error) {
@@ -348,6 +385,7 @@ func findExecutable(dir string) (string, error) {
 				continue
 			}
 			if info.Mode()&0111 != 0 {
+				// Skip builder unless no other choice
 				if e.Name() == "builder" && !allowBuilder {
 					continue
 				}
@@ -369,6 +407,7 @@ func findExecutable(dir string) (string, error) {
 	return name, err
 }
 
+// Delete removes an installed package.
 func (b *Builder) Delete(h hash.Hash) error {
 	path, ok, err := b.DB.Get(DBInstPkgs, h.String())
 	if err != nil {
@@ -378,6 +417,7 @@ func (b *Builder) Delete(h hash.Hash) error {
 		return nil
 	}
 
+	// Make files writable before deletion
 	if util.DirExists(path) {
 		cmd := exec.Command("chmod", "-R", "+w", path)
 		if err := cmd.Run(); err != nil {
@@ -392,10 +432,12 @@ func (b *Builder) Delete(h hash.Hash) error {
 	return b.DB.Delete(DBInstPkgs, h.String())
 }
 
+// ListInstalled returns all installed packages.
 func (b *Builder) ListInstalled() (map[string]string, error) {
 	return b.DB.List(DBInstPkgs)
 }
 
+// RegisterFile registers a source file by computing its hash and copying to sources dir.
 func (b *Builder) RegisterFile(path string) (hash.Hash, error) {
 	abs, err := util.AbsPath(path)
 	if err != nil {
@@ -408,6 +450,7 @@ func (b *Builder) RegisterFile(path string) (hash.Hash, error) {
 	}
 
 	srcPath := b.SourcesDir + "/" + h.String()
+	// Copy to sources if not already there
 	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
 		if err := util.EnsureDir(b.SourcesDir); err != nil {
 			return "", err
@@ -439,25 +482,31 @@ func (b *Builder) RegisterFile(path string) (hash.Hash, error) {
 	return h, nil
 }
 
+// RegisterURL registers a network URL for a given hash.
 func (b *Builder) RegisterURL(h hash.Hash, url string) error {
 	return b.DB.Set(DBNetSources, h.String(), url)
 }
 
+// RegisterPrebuilt registers a binary substitute for a package.
 func (b *Builder) RegisterPrebuilt(pkgHash, prebuiltHash hash.Hash) error {
 	return b.DB.Set(DBPrebuilts, pkgHash.String(), prebuiltHash.String())
 }
 
+// GetPrebuilt returns the prebuilt hash for a package if available.
 func (b *Builder) GetPrebuilt(pkgHash hash.Hash) (string, bool, error) {
 	return b.DB.Get(DBPrebuilts, pkgHash.String())
 }
 
+// ListPrebuilts returns all registered prebuilts.
 func (b *Builder) ListPrebuilts() (map[string]string, error) {
 	return b.DB.List(DBPrebuilts)
 }
 
+// CollectGarbage finds packages not referenced by any profile generation.
 func (b *Builder) CollectGarbage(profilePath string) ([]string, error) {
 	alive := make(map[string]bool)
 
+	// Collect all hashes from profile generations
 	entries, err := os.ReadDir(profilePath)
 	if err != nil {
 		return nil, err
@@ -475,6 +524,7 @@ func (b *Builder) CollectGarbage(profilePath string) ([]string, error) {
 		}
 	}
 
+	// Find installed packages not in alive set
 	installed, err := b.ListInstalled()
 	if err != nil {
 		return nil, err
