@@ -4,9 +4,9 @@ version: '3'
 
 vars:
   PACKAGES: [
-    cliimage,
-    goserv,
-    gitx,
+    go/cliimage,
+    go/goserv,
+    go/gitx,
   ]
 
 tasks:
@@ -58,10 +58,14 @@ tasks:
     cmds:
       - rm -rf ./bin && mkdir ./bin
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go build -o ../bin/{{.ITEM}} .
+        cmd: |
+          NAME=$(basename {{.ITEM}})
+          cd {{.ITEM}} && go build -o ../bin/$NAME .
 
   install:
     desc: Install all binaries
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go install -v .
+        cmd: |
+          NAME=$(basename {{.ITEM}})
+          cd {{.ITEM}} && go install -v .

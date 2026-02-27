@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/0x0Dx/x/gitx/cmd"
+	"github.com/0x0Dx/x/go/gitx/cmd"
 )
 
 func main() {

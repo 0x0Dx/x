@@ -1,19 +1,19 @@
-# 0x0D's experimental packages
+# x
 
 Monorepo containing Go CLI tools.
 
 ## Projects
 
-- [`cliimage`](./cliimage) Terminal image viewer.
-- [`goserv`](./goserv) HTTP file server.
-- [`gitx`](./gitx) Simple git wrapper.
+- [`go/cliimage`](./go/cliimage) Terminal image viewer.
+- [`go/goserv`](./go/goserv) HTTP file server.
+- [`go/gitx`](./go/gitx) Simple git wrapper.
 
 ## Installation
 
 ```bash
-go install github.com/0x0Dx/x/cliimage@main
-go install github.com/0x0Dx/x/goserv@main
-go install github.com/0x0Dx/x/gitx@main
+go install github.com/0x0Dx/x/go/cliimage@main
+go install github.com/0x0Dx/x/go/goserv@main
+go install github.com/0x0Dx/x/go/gitx@main
 ```
 
 ## Development
