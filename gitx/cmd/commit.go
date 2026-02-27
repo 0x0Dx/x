@@ -17,14 +17,17 @@ var commitCmd = &cobra.Command{
 		msg := strings.Join(args, " ")
 
 		addCmd := exec.Command("git", "add", "-A")
-		if err := addCmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Error staging:", err)
-			os.Exit(1)
-		}
+		addCmd.Stdin = nil
+		addCmd.Stdout = nil
+		addCmd.Stderr = nil
+		_ = addCmd.Run()
 
 		cm := exec.Command("git", "commit", "-m", msg)
+		cm.Stdin = nil
+		cm.Stdout = nil
+		cm.Stderr = nil
 		if err := cm.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Error committing:", err)
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
 		fmt.Println("✓ Committed:", msg)
