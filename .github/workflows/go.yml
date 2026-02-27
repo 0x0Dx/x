@@ -26,7 +26,8 @@ jobs:
           $HOME/go/bin/task install:tools
       - name: Run gofumpt for all packages
         run: $HOME/go/bin/task fmt
-      - uses: golangci/golangci-lint-action@v9
+      - name: Run base linters for all packages
+        run: $HOME/go/bin/task lint
       - name: Build all binaries
         run: $HOME/go/bin/task build
       - name: Run tests for all packages
