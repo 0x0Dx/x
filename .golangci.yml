@@ -7,7 +7,7 @@ linters:
     - exhaustive
     - goconst
     - godot
-    - godox
+    - godox 
     - gomoddirectives
     - goprintffuncname
     - gosec

@@ -9,7 +9,7 @@ Monorepo containing tools.
 - [`go/gitx`](./go/gitx) Simple git wrapper.
 
 ## Installation
-
+ 
 ```bash
 go install github.com/0x0Dx/x/go/cliimage@main
 go install github.com/0x0Dx/x/go/goserv@main
