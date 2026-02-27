@@ -16,6 +16,11 @@ func Parse(s string) (Hash, error) {
 	if len(s) != 64 {
 		return "", fmt.Errorf("invalid hash length: %d", len(s))
 	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return "", fmt.Errorf("invalid hash character: %c", c)
+		}
+	}
 	return Hash(s), nil
 }
 
@@ -31,15 +36,22 @@ func FromFile(path string) (Hash, error) {
 	if err != nil {
 		return "", fmt.Errorf("open file: %w", err)
 	}
-	if err := f.Close(); err != nil {
-		return "", fmt.Errorf("close file: %w", err)
-	}
+	defer f.Close()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", fmt.Errorf("copy file: %w", err)
 	}
 
+	return Hash(fmt.Sprintf("%x", h.Sum(nil))), nil
+}
+
+// FromReader computes SHA-256 hash of a reader.
+func FromReader(r io.Reader) (Hash, error) {
+	h := sha256.New()
+	if _, err := io.Copy(h, r); err != nil {
+		return "", fmt.Errorf("copy reader: %w", err)
+	}
 	return Hash(fmt.Sprintf("%x", h.Sum(nil))), nil
 }
 
@@ -50,5 +62,26 @@ func (h Hash) String() string {
 
 // IsValid checks if the hash is the correct length (64 characters).
 func (h Hash) IsValid() bool {
-	return len(h) == 64
+	if len(h) != 64 {
+		return false
+	}
+	for _, c := range h {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
+
+// IsHash checks if a string is a valid hash.
+func IsHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
