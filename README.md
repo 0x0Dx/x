@@ -8,7 +8,7 @@ Monorepo containing tools.
 - [`go/goserv`](./go/goserv) HTTP file server.
 - [`go/gitx`](./go/gitx) Simple git wrapper.
 
-## Installation
+## Installation 
  
 ```bash
 go install github.com/0x0Dx/x/go/cliimage@main
