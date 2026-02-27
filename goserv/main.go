@@ -1,3 +1,4 @@
+// goserv is a simple HTTP file server.
 package main
 
 import (
@@ -5,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
@@ -21,8 +23,16 @@ func main() {
 
 	handler := http.FileServer(http.Dir(*dir))
 
+	srv := &http.Server{
+		Addr:         ":" + *port,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	log.Printf("Serving %s on http://localhost:%s", *dir, *port)
-	if err := http.ListenAndServe(":"+*port, handler); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
