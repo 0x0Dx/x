@@ -5,6 +5,7 @@ version: '3'
 vars:
   PACKAGES: [
     cliimage,
+    goserv,
   ]
 
 tasks:
@@ -45,7 +46,8 @@ tasks:
         cmd: cd {{.ITEM}} && go mod tidy
   
   build:
-    desc: Build the CLI
+    desc: Build all binaries
     cmds:
       - cmd: rm -rf ./bin && mkdir ./bin
       - cmd: cd cliimage && go build -o ../bin/cliimage ./cmd/...
+      - cmd: cd goserv && go build -o ../bin/goserv .
