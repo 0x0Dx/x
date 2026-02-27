@@ -243,7 +243,7 @@ export MOCHII_HOME=$HOME/.mochii
 
 ./mochii getpkg <hash>
 
-# Switch to profile
+# Switch to profile (point to the bin directory, not the binary itself)
 ./mochii switch <hash> $MOCHII_HOME/pkg/<hash>/bin
 
 # Add to PATH
