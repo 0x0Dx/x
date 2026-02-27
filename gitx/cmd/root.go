@@ -1,4 +1,3 @@
-// gitx is a simple, opinionated git wrapper.
 package main
 
 import (

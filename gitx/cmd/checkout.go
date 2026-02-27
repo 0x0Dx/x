@@ -1,3 +1,4 @@
+// Package main provides gitx commands.
 package main
 
 import (
@@ -16,21 +17,21 @@ var checkoutCmd = &cobra.Command{
 		branch := args[0]
 		createNew, _ := cc.Flags().GetBool("branch")
 
-		var gitCmd *exec.Cmd
+		var cmd *exec.Cmd
 		if createNew {
-			gitCmd = exec.Command("git", "checkout", "-b", branch)
+			cmd = exec.Command("git", "checkout", "-b", branch)
 		} else {
-			gitCmd = exec.Command("git", "checkout", branch)
+			cmd = exec.Command("git", "checkout", branch)
 		}
-		gitCmd.Stdin = nil
-		gitCmd.Stdout = nil
-		gitCmd.Stderr = nil
+		cmd.Stdin = nil
+		cmd.Stdout = nil
+		cmd.Stderr = nil
 
-		if err := gitCmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error: "+err.Error()))
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
-		fmt.Println(Success.Render("✓ Switched to '" + branch + "'"))
+		fmt.Println("✓ Switched to '" + branch + "'")
 	},
 }
 

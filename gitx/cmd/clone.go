@@ -28,12 +28,12 @@ var cloneCmd = &cobra.Command{
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 
-		fmt.Println(Info.Render("Cloning into '" + dir + "'..."))
+		fmt.Println("Cloning into '" + dir + "'...")
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
-		fmt.Println(Success.Render("✓ Cloned successfully"))
+		fmt.Println("✓ Cloned successfully")
 	},
 }
 

@@ -16,10 +16,10 @@ var pushCmd = &cobra.Command{
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
-		fmt.Println(Success.Render("✓ Pushed"))
+		fmt.Println("✓ Pushed")
 	},
 }
 
@@ -31,10 +31,10 @@ var pullCmd = &cobra.Command{
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
-		fmt.Println(Success.Render("✓ Pulled"))
+		fmt.Println("✓ Pulled")
 	},
 }
 
@@ -42,23 +42,23 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Pull, rebase and push",
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Println(Info.Render("Pulling..."))
+		fmt.Println("Pulling...")
 		cmd := exec.Command("git", "pull", "--rebase")
 		cmd.Stdin = nil
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error pulling: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error pulling:", err)
 			os.Exit(1)
 		}
 
-		fmt.Println(Info.Render("Pushing..."))
+		fmt.Println("Pushing...")
 		cmd = exec.Command("git", "push")
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error pushing: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error pushing:", err)
 			os.Exit(1)
 		}
-		fmt.Println(Success.Render("✓ Synced"))
+		fmt.Println("✓ Synced")
 	},
 }
 

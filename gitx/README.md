@@ -1,6 +1,6 @@
 # gitx
 
-A simple, opinionated git wrapper with pretty output.
+A simple, opinionated git wrapper.
 
 ## Installation
 
@@ -18,6 +18,7 @@ go install github.com/0x0Dx/x/gitx@main
 | `gitx ci <msg>` | Stage all and commit |
 | `gitx st` | Show status |
 | `gitx br` | List branches |
+| `gitx br -d <branch>` | Delete a branch |
 | `gitx push` | Push to remote |
 | `gitx pull` | Pull from remote |
 | `gitx sync` | Pull, rebase, push |

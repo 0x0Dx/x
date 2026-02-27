@@ -18,16 +18,16 @@ var commitCmd = &cobra.Command{
 
 		addCmd := exec.Command("git", "add", "-A")
 		if err := addCmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error staging: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error staging:", err)
 			os.Exit(1)
 		}
 
-		commitCmd := exec.Command("git", "commit", "-m", msg)
-		if err := commitCmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error committing: "+err.Error()))
+		cm := exec.Command("git", "commit", "-m", msg)
+		if err := cm.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "Error committing:", err)
 			os.Exit(1)
 		}
-		fmt.Println(Success.Render("✓ Committed: " + msg))
+		fmt.Println("✓ Committed:", msg)
 	},
 }
 
@@ -39,27 +39,42 @@ var statusCmd = &cobra.Command{
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
 	},
 }
 
 var branchCmd = &cobra.Command{
-	Use:   "br",
-	Short: "List branches",
-	Run: func(_ *cobra.Command, _ []string) {
+	Use:   "br [-d <branch>]",
+	Short: "List or delete branches",
+	Run: func(cc *cobra.Command, _ []string) {
+		deleteBranch, _ := cc.Flags().GetString("delete")
+
+		if deleteBranch != "" {
+			cmd := exec.Command("git", "branch", "-D", deleteBranch)
+			cmd.Stdout = nil
+			cmd.Stderr = nil
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintln(os.Stderr, "Error:", err)
+				os.Exit(1)
+			}
+			fmt.Println("✓ Deleted branch:", deleteBranch)
+			return
+		}
+
 		cmd := exec.Command("git", "branch")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, Error.Render("Error: "+err.Error()))
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
 	},
 }
 
 func init() {
+	branchCmd.Flags().StringP("delete", "d", "", "Delete a branch")
 	rootCmd.AddCommand(commitCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(branchCmd)
