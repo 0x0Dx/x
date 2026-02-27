@@ -5,7 +5,7 @@ A terminal image viewer that renders images using Unicode block characters with 
 ## Installation
 
 ```bash
-go install github.com/0x0Dx/x/cliimage@latest
+go install github.com/0x0Dx/x/cliimage@main
 ```
 
 ## Usage
