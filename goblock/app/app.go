@@ -53,7 +53,7 @@ func Start() {
 	for !a.window.ShouldClose() && a.window.GetKey(glfw.KeyQ) != glfw.Press {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		//a.camera.HandleMove()
+		a.camera.HandleMove()
 
 		//a.chunkRenderer.SetTargetBlock(chunk)
 		//a.chunkRenderer.Draw(chunk, mgl32.Vec3{0, 0, 0})

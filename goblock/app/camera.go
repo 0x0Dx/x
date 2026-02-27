@@ -30,6 +30,25 @@ func (c *Camera) SetLookHandler() {
 	})
 }
 
+func (c *Camera) HandleMove() {
+	var rightMove float32
+	var forwardMove float32
+
+	if c.window.GetKey(glfw.KeyA) == glfw.Press {
+		rightMove--
+	}
+	if c.window.GetKey(glfw.KeyD) == glfw.Press {
+		rightMove++
+	}
+	if c.window.GetKey(glfw.KeyW) == glfw.Press {
+		forwardMove++
+	}
+	if c.window.GetKey(glfw.KeyS) == glfw.Press {
+		forwardMove--
+	}
+	c.Move(forwardMove, rightMove)
+}
+
 func (c *Camera) Look(screenX, screenY float32) {
 	deltaX := -screenX + c.prevScreenX
 	deltaY := -screenY + c.prevScreenY
