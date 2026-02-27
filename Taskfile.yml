@@ -6,7 +6,6 @@ vars:
     - cliimage
     - goserv
     - gitx
-    - goblock
   PLATFORMS:
     - linux/amd64
     - linux/arm64
