@@ -1,0 +1,34 @@
+name: Go
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-tags: true
+          fetch-depth: 0
+      - name: Build essential
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+      - uses: actions/setup-go@v5.5.0
+      - name: Install all tools needed
+        run: |
+          go install github.com/go-task/task/v3/cmd/task@latest
+          $HOME/go/bin/task install:tools
+      - name: Run gofumpt for all packages
+        run: $HOME/go/bin/task fmt
+      - name: Run base linters for all packages
+        run: $HOME/go/bin/task lint
+      - name: Build all binaries
+        run: $HOME/go/bin/task build
+      - name: Run tests for all packages
+        run: $HOME/go/bin/task test

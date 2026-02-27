@@ -9,6 +9,13 @@ vars:
   ]
 
 tasks:
+  install:tools:
+    desc: Install all tools needed
+    cmds:
+      - go install mvdan.cc/gofumpt@latest
+      - go install golang.org/x/tools/cmd/goimports@latest
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
   fmt:
     desc: Run gofumpt for all packages
     cmds:
@@ -48,6 +55,6 @@ tasks:
   build:
     desc: Build all binaries
     cmds:
-      - cmd: rm -rf ./bin && mkdir ./bin
-      - cmd: cd cliimage && go build -o ../bin/cliimage .
-      - cmd: cd goserv && go build -o ../bin/goserv .
+      - rm -rf ./bin && mkdir ./bin
+      - cd cliimage && go build -o ../bin/cliimage .
+      - cd goserv && go build -o ../bin/goserv .
