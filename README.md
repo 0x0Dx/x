@@ -4,8 +4,8 @@ Monorepo containing Go CLI tools.
 
 ## Projects
 
-### [cliimage](./cliimage) Terminal image viewer.
-### [goserv](./goserv) HTTP file server.
+- [`cliimage`](./cliimage) Terminal image viewer.
+- [`goserv`](./goserv) HTTP file server.
 
 ## Installation
 
