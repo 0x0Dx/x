@@ -13,8 +13,6 @@ go install github.com/0x0Dx/x/gitx@main
 | Command | Description |
 |---------|-------------|
 | `gitx clone <repo>` | Clone a repository |
-| `gitx co <branch>` | Checkout a branch |
-| `gitx co -b <branch>` | Create and checkout new branch |
 | `gitx br` | List branches |
 | `gitx br -c <branch>` | Create a branch |
 | `gitx br -s <branch>` | Switch to a branch |
@@ -27,7 +25,6 @@ go install github.com/0x0Dx/x/gitx@main
 
 ## Shorthands
 
-- `co` = checkout
 - `ci` = commit (stage all + commit)
 - `st` = status
 - `br` = branch
