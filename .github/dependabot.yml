@@ -10,4 +10,5 @@ updates:
     directory: "/"
     schedule:
       interval: daily
-      time: "00:00"
+      time: "00:05"
+      timezone: "Europe/Amsterdam"
