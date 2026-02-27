@@ -79,9 +79,7 @@ func (d *DB) List(table string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
+	defer rows.Close()
 
 	result := make(map[string]string)
 	for rows.Next() {
@@ -91,7 +89,7 @@ func (d *DB) List(table string) (map[string]string, error) {
 		}
 		result[key] = value
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // Close closes the database connection.
