@@ -49,6 +49,19 @@ func (c *Camera) HandleMove() {
 	c.Move(forwardMove, rightMove)
 }
 
+func (c *Camera) Move(forward, right float32) {
+	rightVec := c.view.Cross(c.up)
+
+	movement := c.view.Mul(forward).Add(rightVec.Mul(right))
+	if movement.Len() > 0 {
+		movement = movement.Normalize()
+	}
+
+	var speed float32 = 0.1
+	movement = movement.Mul(speed)
+	c.eye = c.eye.Add(movement)
+}
+
 func (c *Camera) Look(screenX, screenY float32) {
 	deltaX := -screenX + c.prevScreenX
 	deltaY := -screenY + c.prevScreenY
