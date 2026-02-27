@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -63,7 +63,7 @@ var syncCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(pushCmd)
-	rootCmd.AddCommand(pullCmd)
-	rootCmd.AddCommand(syncCmd)
+	RootCmd.AddCommand(pushCmd)
+	RootCmd.AddCommand(pullCmd)
+	RootCmd.AddCommand(syncCmd)
 }

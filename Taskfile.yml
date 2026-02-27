@@ -63,6 +63,5 @@ tasks:
   install:
     desc: Install all binaries
     cmds:
-      - rm -rf ./bin && mkdir ./bin
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go build -o ../bin/{{.ITEM}} .
+        cmd: cd {{.ITEM}} && go install -v .

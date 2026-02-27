@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -46,6 +46,6 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(commitCmd)
-	rootCmd.AddCommand(statusCmd)
+	RootCmd.AddCommand(commitCmd)
+	RootCmd.AddCommand(statusCmd)
 }

@@ -1,5 +1,5 @@
 // Package main provides gitx commands.
-package main
+package cmd
 
 import (
 	"fmt"
@@ -37,5 +37,5 @@ var checkoutCmd = &cobra.Command{
 
 func init() {
 	checkoutCmd.Flags().BoolP("branch", "b", false, "Create and switch to new branch")
-	rootCmd.AddCommand(checkoutCmd)
+	RootCmd.AddCommand(checkoutCmd)
 }

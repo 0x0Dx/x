@@ -1,18 +1,7 @@
 package main
 
-import (
-	"os"
-
-	"github.com/spf13/cobra"
-)
-
-var rootCmd = &cobra.Command{
-	Use:   "gitx",
-	Short: "A simple, opinionated git wrapper",
-}
+import "github.com/0x0Dx/x/gitx/cmd"
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	cmd.Execute()
 }
