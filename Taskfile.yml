@@ -45,8 +45,7 @@ tasks:
         cmd: cd {{.ITEM}} && go mod tidy
   
   build:
-    desc: Run `go build ./...` for all packages
+    desc: Build the CLI
     cmds:
       - cmd: rm -rf ./bin && mkdir ./bin
-      - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && go build -o ../bin ./...
+      - cmd: cd cliimage && go build -o ../bin/cliimage ./cmd/...

@@ -1,4 +1,5 @@
-package main
+// Package renderer provides image rendering for terminal output.
+package renderer
 
 import (
 	"image"
@@ -8,6 +9,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/0x0Dx/x/cliimage/internal/blocks"
 	"github.com/charmbracelet/x/ansi"
 	xdraw "golang.org/x/image/draw"
 )
@@ -17,6 +19,7 @@ const (
 	maxColorValue    = 255
 )
 
+// CliImage is the image renderer.
 type CliImage struct {
 	outputWidth    int
 	outputHeight   int
@@ -25,9 +28,10 @@ type CliImage struct {
 	noBlockSymbols bool
 	invertColors   bool
 	scale          int
-	symbols        Symbol
+	symbols        blocks.Symbol
 }
 
+// New creates a new CliImage renderer.
 func New() CliImage {
 	return CliImage{
 		outputWidth:    0,
@@ -37,7 +41,7 @@ func New() CliImage {
 		noBlockSymbols: false,
 		invertColors:   false,
 		scale:          1,
-		symbols:        SymbolHalf,
+		symbols:        blocks.SymbolHalf,
 	}
 }
 
@@ -63,21 +67,25 @@ func shift[T shiftable](x T) T {
 	return x
 }
 
+// Scale sets the scale factor for rendering.
 func (r CliImage) Scale(scale int) CliImage {
 	r.scale = scale
 	return r
 }
 
+// IgnoreBlockSymbols sets whether to use only half blocks.
 func (r CliImage) IgnoreBlockSymbols(fgOnly bool) CliImage {
 	r.noBlockSymbols = fgOnly
 	return r
 }
 
+// Dither sets whether to apply Floyd-Steinberg dithering.
 func (r CliImage) Dither(dither bool) CliImage {
 	r.dither = dither
 	return r
 }
 
+// Threshold sets the luminance threshold level.
 func (r CliImage) Threshold(threshold int) CliImage {
 	if threshold >= 0 && threshold <= u8MaxValue {
 		r.thresholdLevel = uint8(threshold)
@@ -85,31 +93,37 @@ func (r CliImage) Threshold(threshold int) CliImage {
 	return r
 }
 
+// InvertColors sets whether to invert colors.
 func (r CliImage) InvertColors(invertColors bool) CliImage {
 	r.invertColors = invertColors
 	return r
 }
 
+// Width sets the output width in characters.
 func (r CliImage) Width(width int) CliImage {
 	r.outputWidth = width
 	return r
 }
 
+// Height sets the output height in characters.
 func (r CliImage) Height(height int) CliImage {
 	r.outputHeight = height
 	return r
 }
 
-func (r CliImage) Symbol(symbol Symbol) CliImage {
+// Symbol sets the block symbol mode.
+func (r CliImage) Symbol(symbol blocks.Symbol) CliImage {
 	r.symbols = symbol
 	return r
 }
 
+// Render renders an image to an ANSI string.
 func Render(img image.Image, width int, height int) string {
 	r := New().Width(width).Height(height)
 	return r.Render(img)
 }
 
+// Render renders the image to an ANSI-styled string.
 func (r *CliImage) Render(img image.Image) string {
 	bounds := img.Bounds()
 	srcWidth := bounds.Max.X - bounds.Min.X
@@ -141,13 +155,13 @@ func (r *CliImage) Render(img image.Image) string {
 
 	imageBounds := scaledImg.Bounds()
 
-	blocks := getAvailableBlocks(r.symbols)
+	availableBlocks := blocks.GetAvailableBlocks(r.symbols)
 
 	for y := 0; y < imageBounds.Max.Y; y += 2 {
 		for x := 0; x < imageBounds.Max.X; x += 2 {
 			block := r.createPixelBlock(scaledImg, x, y)
 
-			r.findBestRepresentation(block, blocks)
+			r.findBestRepresentation(block, availableBlocks)
 
 			output.WriteString(
 				ansi.Style{}.ForegroundColor(block.BestFgColor).BackgroundColor(block.BestBgColor).Styled(string(block.BestSymbol)),
@@ -171,7 +185,7 @@ func (r *CliImage) createPixelBlock(img image.Image, x, y int) *pixelBlock {
 	return block
 }
 
-func (r *CliImage) findBestRepresentation(block *pixelBlock, availableBlocks []Block) {
+func (r *CliImage) findBestRepresentation(block *pixelBlock, availableBlocks []blocks.Block) {
 	if r.noBlockSymbols {
 		block.BestSymbol = '▀'
 		block.BestBgColor = r.averageColors(block.Pixels[0][0], block.Pixels[0][1])
@@ -340,4 +354,5 @@ func rgbaToLuminance(c color.Color) uint8 {
 	return uint8(float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114)
 }
 
+// FloydSteinberg is the Floyd-Steinberg dithering algorithm.
 var FloydSteinberg = draw.FloydSteinberg

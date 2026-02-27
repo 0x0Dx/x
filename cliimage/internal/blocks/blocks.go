@@ -1,14 +1,17 @@
-// Package main provides a terminal image viewer.
-package main
+// Package blocks provides block types for terminal image rendering.
+package blocks
 
+// Block represents a Unicode block character for terminal rendering.
 type Block struct {
 	Char        rune
 	Coverage    [4]bool
 	CoverageMap string
 }
 
+// Symbol represents the type of block symbols to use.
 type Symbol uint8
 
+// Symbol constants represent different block symbol modes.
 const (
 	SymbolHalf Symbol = iota
 	SymbolQuarter
@@ -42,7 +45,8 @@ var complexBlocks = []Block{
 	{Char: '▞', Coverage: [4]bool{false, true, true, false}, CoverageMap: " █\n█ "},
 }
 
-func getAvailableBlocks(symbol Symbol) []Block {
+// GetAvailableBlocks returns the available block characters for a given symbol mode.
+func GetAvailableBlocks(symbol Symbol) []Block {
 	blocks := halfBlocks
 
 	if symbol == SymbolQuarter || symbol == SymbolAll {

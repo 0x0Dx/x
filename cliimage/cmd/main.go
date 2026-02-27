@@ -1,3 +1,4 @@
+// Package main is the entry point for cliimage.
 package main
 
 import (
@@ -13,6 +14,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/0x0Dx/x/cliimage/internal/blocks"
+	"github.com/0x0Dx/x/cliimage/internal/config"
+	"github.com/0x0Dx/x/cliimage/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
@@ -27,13 +31,13 @@ var versionCmd = &cobra.Command{
 func main() {
 	cobra.OnInitialize()
 
-	rootCmd.AddCommand(versionCmd)
+	config.RootCmd.AddCommand(versionCmd)
 
-	if err := Execute(); err != nil {
+	if err := config.Execute(); err != nil {
 		os.Exit(1)
 	}
 
-	cfg := GetConfig()
+	cfg := config.GetConfig()
 
 	file := openInputFile(cfg.InputFile)
 	defer func() {
@@ -56,7 +60,7 @@ func main() {
 
 	symbol := parseSymbol(pixelation)
 
-	renderer := New().
+	r := renderer.New().
 		Width(cfg.Width).
 		Height(cfg.Height).
 		Threshold(cfg.Threshold).
@@ -66,7 +70,7 @@ func main() {
 		InvertColors(cfg.Invert).
 		Scale(cfg.Scale)
 
-	result := renderer.Render(img)
+	result := r.Render(img)
 
 	if cfg.OutputFile != "" {
 		outputPath := filepath.Clean(cfg.OutputFile)
@@ -108,13 +112,13 @@ func openInputFile(path string) *os.File {
 	return file
 }
 
-func parseSymbol(platform string) Symbol {
+func parseSymbol(platform string) blocks.Symbol {
 	switch platform {
 	case "quarter":
-		return SymbolQuarter
+		return blocks.SymbolQuarter
 	case "all":
-		return SymbolAll
+		return blocks.SymbolAll
 	default:
-		return SymbolHalf
+		return blocks.SymbolHalf
 	}
 }
