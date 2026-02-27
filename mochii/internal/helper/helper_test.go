@@ -1,4 +1,4 @@
-package util
+package helper
 
 import (
 	"os"
@@ -37,7 +37,7 @@ func TestAbsPath(t *testing.T) {
 func TestFileExists(t *testing.T) {
 	tmpFile := filepath.Join(os.TempDir(), "mochii-test")
 
-	os.WriteFile(tmpFile, []byte("test"), 0644)
+	os.WriteFile(tmpFile, []byte("test"), 0o644)
 	defer os.Remove(tmpFile)
 
 	if !FileExists(tmpFile) {

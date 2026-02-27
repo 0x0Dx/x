@@ -1,4 +1,5 @@
-package hash
+// Package hasher provides SHA-256 hashing functionality.
+package hasher
 
 import (
 	"crypto/sha256"
@@ -28,15 +29,15 @@ func FromString(s string) Hash {
 func FromFile(path string) (Hash, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("open file: %w", err)
 	}
 	if err := f.Close(); err != nil {
-		return "", err
+		return "", fmt.Errorf("close file: %w", err)
 	}
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return "", err
+		return "", fmt.Errorf("copy file: %w", err)
 	}
 
 	return Hash(fmt.Sprintf("%x", h.Sum(nil))), nil

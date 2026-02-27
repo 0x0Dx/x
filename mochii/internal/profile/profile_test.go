@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/0x0Dx/x/mochii/internal/hash"
+	"github.com/0x0Dx/x/mochii/internal/hasher"
 )
 
 func TestProfileNextNum(t *testing.T) {
@@ -13,7 +13,7 @@ func TestProfileNextNum(t *testing.T) {
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
 
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, 0o755)
 
 	p := New(tmpDir)
 
@@ -23,8 +23,8 @@ func TestProfileNextNum(t *testing.T) {
 	}
 
 	// Create hash files
-	os.WriteFile(filepath.Join(tmpDir, "1.hash"), []byte("abc"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "3.hash"), []byte("def"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "1.hash"), []byte("abc"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "3.hash"), []byte("def"), 0o644)
 
 	num = p.nextNum()
 	if num != 4 {
@@ -37,7 +37,7 @@ func TestProfileListGenerations(t *testing.T) {
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
 
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, 0o755)
 
 	p := New(tmpDir)
 
@@ -50,8 +50,8 @@ func TestProfileListGenerations(t *testing.T) {
 	}
 
 	// Create generation files
-	os.MkdirAll(filepath.Join(tmpDir, "1"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "1.hash"), []byte("abc123"), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "1"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, "1.hash"), []byte("abc123"), 0o644)
 
 	gens, err = p.ListGenerations()
 	if err != nil {
@@ -70,7 +70,7 @@ func TestProfileCurrent(t *testing.T) {
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
 
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, 0o755)
 
 	p := New(tmpDir)
 
@@ -96,13 +96,13 @@ func TestProfileDeleteGeneration(t *testing.T) {
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
 
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, 0o755)
 
 	p := New(tmpDir)
 
 	// Create generation
-	os.MkdirAll(filepath.Join(tmpDir, "1"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "1.hash"), []byte("abc123"), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "1"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, "1.hash"), []byte("abc123"), 0o644)
 
 	err := p.DeleteGeneration(1)
 	if err != nil {
@@ -126,16 +126,16 @@ func TestProfileSwitch(t *testing.T) {
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
 
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, 0o755)
 
 	// Create a mock package directory with executable
 	pkgDir := filepath.Join(tmpDir, "mock-pkg")
-	os.MkdirAll(filepath.Join(pkgDir, "bin"), 0755)
-	os.WriteFile(filepath.Join(pkgDir, "bin", "test"), []byte("test"), 0755)
+	os.MkdirAll(filepath.Join(pkgDir, "bin"), 0o755)
+	os.WriteFile(filepath.Join(pkgDir, "bin", "test"), []byte("test"), 0o755)
 
 	p := New(tmpDir)
 
-	h := hash.Hash("abc123def456abc123def456abc123def456abc123def456abc123def456abc")
+	h := hasher.Hash("abc123def456abc123def456abc123def456abc123def456abc123def456abc")
 	err := p.Switch(h, pkgDir)
 	if err != nil {
 		t.Fatalf("Switch failed: %v", err)

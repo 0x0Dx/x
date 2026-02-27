@@ -1,3 +1,4 @@
+// Package main is the main entry point for the mochii CLI.
 package main
 
 import (
@@ -21,7 +22,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	defer cli.Close()
+	if err := cli.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: close cli failed: %v\n", err)
+	}
 
 	var exitCode int
 
@@ -148,7 +151,8 @@ func main() {
 		cmd.PrintUsage()
 
 	default:
-		fmt.Fprintf(os.Stderr, "error: unknown command: %s\n", os.Args[1])
+		fmt.Fprint(os.Stderr, "error: unknown command: ")
+		fmt.Println(os.Args[1])
 		cmd.PrintUsage()
 		exitCode = 1
 	}

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/0x0Dx/x/mochii/internal/util"
+	"github.com/0x0Dx/x/mochii/internal/helper"
 )
 
 func TestDB(t *testing.T) {
@@ -115,7 +115,7 @@ func TestEnsureDB(t *testing.T) {
 	}
 	defer db.Close()
 
-	if !util.FileExists(tmpFile) {
+	if !helper.FileExists(tmpFile) {
 		t.Error("expected db file to exist")
 	}
 }

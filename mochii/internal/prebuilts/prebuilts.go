@@ -1,27 +1,26 @@
+// Package prebuilts provides prebuilt binary package handling.
 package prebuilts
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/0x0Dx/x/mochii/internal/build"
-	"github.com/0x0Dx/x/mochii/internal/hash"
+	"github.com/0x0Dx/x/mochii/internal/builder"
+	"github.com/0x0Dx/x/mochii/internal/hasher"
 )
 
 // Prebuilt handles pulling and pushing binary substitutes.
 type Prebuilt struct {
-	Builder *build.Builder
+	Builder *builder.Builder
 	Dir     string // Local prebuilts directory
 }
 
 // New creates a new Prebuilt handler.
-func New(b *build.Builder, dir string) *Prebuilt {
+func New(b *builder.Builder, dir string) *Prebuilt {
 	return &Prebuilt{Builder: b, Dir: dir}
 }
 
@@ -41,8 +40,8 @@ type PrebuiltEntry struct {
 
 // Pull fetches prebuilt packages from URLs or directories.
 func (p *Prebuilt) Pull(config *PrebuiltConfig) error {
-	if err := os.MkdirAll(p.Dir, 0755); err != nil {
-		return err
+	if err := os.MkdirAll(p.Dir, 0o750); err != nil {
+		return fmt.Errorf("create prebuilts dir: %w", err)
 	}
 
 	for _, url := range config.URLs {
@@ -68,12 +67,12 @@ func (p *Prebuilt) pullFromURL(url string) error {
 
 	cmd := exec.Command("wget", "-q", "-O", tmpFile, url)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("wget failed: %v", err)
+		return fmt.Errorf("wget failed: %w", err)
 	}
 
 	data, err := os.ReadFile(tmpFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("read file: %w", err)
 	}
 
 	// Parse HTML for links matching pattern: name-HASH-HASH.tar.bz2
@@ -99,13 +98,13 @@ func (p *Prebuilt) pullFromURL(url string) error {
 
 		fmt.Printf("registering prebuilt %s => %s\n", pkgHash, prebuiltHash)
 
-		pkgHashH, err := hash.Parse(pkgHash)
+		pkgHashH, err := hasher.Parse(pkgHash)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: invalid pkg hash: %v\n", err)
 			continue
 		}
 
-		prebuiltHashH, err := hash.Parse(prebuiltHash)
+		prebuiltHashH, err := hasher.Parse(prebuiltHash)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: invalid prebuilt hash: %v\n", err)
 			continue
@@ -121,7 +120,9 @@ func (p *Prebuilt) pullFromURL(url string) error {
 		}
 	}
 
-	os.Remove(tmpFile)
+	if err := os.Remove(tmpFile); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: remove tmp file failed: %v\n", err)
+	}
 	return nil
 }
 
@@ -129,7 +130,7 @@ func (p *Prebuilt) pullFromURL(url string) error {
 func (p *Prebuilt) pullFromDir(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("read dir: %w", err)
 	}
 
 	// Match files: name-HASH-HASH.tar.bz2
@@ -148,13 +149,17 @@ func (p *Prebuilt) pullFromDir(dir string) error {
 
 		fmt.Printf("registering prebuilt %s => %s (%s)\n", pkgHash, prebuiltHash, id)
 
-		pkgHashH, _ := hash.Parse(pkgHash)
-		prebuiltHashH, _ := hash.Parse(prebuiltHash)
+		pkgHashH, _ := hasher.Parse(pkgHash)
+		prebuiltHashH, _ := hasher.Parse(prebuiltHash)
 
-		p.Builder.RegisterPrebuilt(pkgHashH, prebuiltHashH)
+		if err := p.Builder.RegisterPrebuilt(pkgHashH, prebuiltHashH); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: register prebuilt failed: %v\n", err)
+		}
 
 		fullPath := filepath.Join(dir, name)
-		p.Builder.RegisterFile(fullPath)
+		if _, err := p.Builder.RegisterFile(fullPath); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: register file failed: %v\n", err)
+		}
 	}
 
 	return nil
@@ -162,18 +167,18 @@ func (p *Prebuilt) pullFromDir(dir string) error {
 
 // Push exports installed packages that don't have prebuilts.
 func (p *Prebuilt) Push(exportDir string) error {
-	if err := os.MkdirAll(exportDir, 0755); err != nil {
-		return err
+	if err := os.MkdirAll(exportDir, 0o750); err != nil {
+		return fmt.Errorf("create export dir: %w", err)
 	}
 
 	installed, err := p.Builder.ListInstalled()
 	if err != nil {
-		return err
+		return fmt.Errorf("list installed: %w", err)
 	}
 
 	prebuilts, err := p.Builder.ListPrebuilts()
 	if err != nil {
-		return err
+		return fmt.Errorf("list prebuilts: %w", err)
 	}
 
 	// Export packages without prebuilts
@@ -198,30 +203,4 @@ func (p *Prebuilt) Push(exportDir string) error {
 
 	fmt.Printf("prebuilts exported to %s\n", exportDir)
 	return nil
-}
-
-// fetchURL downloads a file from a URL (not currently used).
-func fetchURL(url, dest string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	if err := resp.Body.Close(); err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	out, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
-	}
-
-	_, err = io.Copy(out, resp.Body)
-	return err
 }

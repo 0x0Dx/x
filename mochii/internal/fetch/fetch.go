@@ -1,3 +1,4 @@
+// Package fetch provides file fetching functionality for mochii.
 package fetch
 
 import (
@@ -8,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/0x0Dx/x/mochii/internal/util"
+	"github.com/0x0Dx/x/mochii/internal/helper"
 )
 
 // Fetcher handles downloading files from URLs.
@@ -24,28 +25,28 @@ func New(sourcesDir string) *Fetcher {
 // FetchURL downloads a file from a URL to the sources directory.
 // Returns the local path if already cached.
 func (f *Fetcher) FetchURL(url string) (string, error) {
-	filename := util.BaseNameOf(url)
+	filename := helper.BaseNameOf(url)
 	fullname := f.SourcesDir + "/" + filename
 
 	// Return cached file if it exists
-	if util.FileExists(fullname) {
+	if helper.FileExists(fullname) {
 		return fullname, nil
 	}
 
 	fmt.Printf("fetching %s\n", url)
 
-	if err := util.EnsureDir(f.SourcesDir); err != nil {
-		return "", err
+	if err := helper.EnsureDir(f.SourcesDir); err != nil {
+		return "", fmt.Errorf("ensure sources dir: %w", err)
 	}
 
 	// Download to temp file first
 	tmpFile := fullname + ".tmp"
 	out, err := os.Create(tmpFile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("create temp file: %w", err)
 	}
 	if err := out.Close(); err != nil {
-		return "", err
+		return "", fmt.Errorf("close temp file: %w", err)
 	}
 
 	client := &http.Client{
@@ -54,10 +55,10 @@ func (f *Fetcher) FetchURL(url string) (string, error) {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("http get: %w", err)
 	}
 	if err := resp.Body.Close(); err != nil {
-		return "", err
+		return "", fmt.Errorf("close response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -65,23 +66,23 @@ func (f *Fetcher) FetchURL(url string) (string, error) {
 	}
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
-		return "", err
+		return "", fmt.Errorf("copy to file: %w", err)
 	}
 
 	if err := out.Close(); err != nil {
-		return "", err
+		return "", fmt.Errorf("close output file: %w", err)
 	}
 
 	// Atomically rename to final location
 	if err := os.Rename(tmpFile, fullname); err != nil {
-		return "", err
+		return "", fmt.Errorf("rename file: %w", err)
 	}
 
 	return fullname, nil
 }
 
 // FetchHash fetches a file by hash (not yet implemented).
-func (f *Fetcher) FetchHash(hash string) (string, error) {
+func (f *Fetcher) FetchHash(_ string) (string, error) {
 	return "", fmt.Errorf("FetchHash not implemented")
 }
 

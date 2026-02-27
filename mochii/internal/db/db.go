@@ -1,3 +1,4 @@
+// Package db provides SQLite database functionality for mochii.
 package db
 
 import (
@@ -6,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // enable sqlite driver
 )
 
 // DB wraps a SQLite database connection.
@@ -56,7 +57,7 @@ func (d *DB) Get(table, key string) (string, bool, error) {
 		return "", false, nil
 	}
 	if err != nil {
-		return "", false, err
+		return "", false, fmt.Errorf("query row: %w", err)
 	}
 	return value, true, nil
 }
@@ -64,44 +65,54 @@ func (d *DB) Get(table, key string) (string, bool, error) {
 // Set inserts or updates a key-value pair in a table.
 func (d *DB) Set(table, key, value string) error {
 	_, err := d.Exec(fmt.Sprintf("INSERT OR REPLACE INTO %s (key, value) VALUES (?, ?)", table), key, value)
-	return err
+	return fmt.Errorf("exec set: %w", err)
 }
 
 // Delete removes a key from a table.
 func (d *DB) Delete(table, key string) error {
 	_, err := d.Exec(fmt.Sprintf("DELETE FROM %s WHERE key = ?", table), key)
-	return err
+	return fmt.Errorf("exec delete: %w", err)
 }
 
 // List returns all key-value pairs from a table.
 func (d *DB) List(table string) (map[string]string, error) {
 	rows, err := d.Query(fmt.Sprintf("SELECT key, value FROM %s", table))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query list: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: close rows failed: %v\n", err)
+		}
+	}()
 
 	result := make(map[string]string)
 	for rows.Next() {
 		var key, value string
 		if err := rows.Scan(&key, &value); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		result[key] = value
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+	return result, nil
 }
 
 // Close closes the database connection.
 func (d *DB) Close() error {
-	return d.DB.Close()
+	if err := d.DB.Close(); err != nil {
+		return fmt.Errorf("close db: %w", err)
+	}
+	return nil
 }
 
 // EnsureDB creates the database directory if needed, then opens the database.
 func EnsureDB(path string) (*DB, error) {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, err
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return nil, fmt.Errorf("create db dir: %w", err)
 	}
 	return New(path)
 }

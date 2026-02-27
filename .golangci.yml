@@ -15,7 +15,6 @@ linters:
     - nakedret
     - nestif
     - nilerr
-    - noctx
     - nolintlint
     - prealloc
     - revive

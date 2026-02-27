@@ -1,4 +1,5 @@
-package util
+// Package helper provides utility functions.
+package helper
 
 import (
 	"fmt"
@@ -20,7 +21,7 @@ func AbsPath(p string) (string, error) {
 	}
 	abs, err := filepath.Abs(p)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("abs path: %w", err)
 	}
 	return abs, nil
 }
@@ -39,7 +40,10 @@ func DirExists(p string) bool {
 
 // EnsureDir creates a directory and all parent directories if they don't exist.
 func EnsureDir(p string) error {
-	return os.MkdirAll(p, 0755)
+	if err := os.MkdirAll(p, 0o750); err != nil {
+		return fmt.Errorf("mkdir all: %w", err)
+	}
+	return nil
 }
 
 // Getenv returns the value of an environment variable, or a default if not set.
@@ -76,6 +80,6 @@ func (e Error) Error() string {
 }
 
 // Errorf creates a new Error with a formatted message.
-func Errorf(format string, args ...interface{}) Error {
+func Errorf(format string, args ...any) Error {
 	return Error{msg: fmt.Sprintf(format, args...)}
 }

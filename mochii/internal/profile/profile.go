@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/0x0Dx/x/mochii/internal/hash"
+	"github.com/0x0Dx/x/mochii/internal/hasher"
 )
 
-// Profile manages profile generations.
+// Package profile manages profile generations.
 type Profile struct {
 	Path string
 }
@@ -30,9 +30,9 @@ type Generation struct {
 
 // Switch creates a new generation pointing to a package.
 // Creates symlinks to all executables in the package's bin directory.
-func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
-	if err := os.MkdirAll(p.Path, 0755); err != nil {
-		return err
+func (p *Profile) Switch(h hasher.Hash, pkgPath string) error {
+	if err := os.MkdirAll(p.Path, 0o750); err != nil {
+		return fmt.Errorf("create profile dir: %w", err)
 	}
 
 	// Get next generation number
@@ -42,8 +42,8 @@ func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
 	genDir := fmt.Sprintf("%s/%d", p.Path, num)
 	binDir := genDir + "/bin"
 
-	if err := os.MkdirAll(binDir, 0755); err != nil {
-		return err
+	if err := os.MkdirAll(binDir, 0o750); err != nil {
+		return fmt.Errorf("create bin dir: %w", err)
 	}
 
 	// Symlink all executables from package to bin/
@@ -87,8 +87,7 @@ func (p *Profile) Switch(h hash.Hash, pkgPath string) error {
 
 // symlinkExecutables creates symlinks to all executable files in a package.
 func symlinkExecutables(pkgPath, binDir string) error {
-	var link func(string, string) error
-	link = func(src, dst string) error {
+	var link func(string, string) error = func(src, dst string) error {
 		info, err := os.Lstat(dst)
 		if err == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
@@ -107,39 +106,38 @@ func symlinkExecutables(pkgPath, binDir string) error {
 		name := e.Name()
 		src := filepath.Join(pkgPath, name)
 
-		if e.IsDir() {
-			// Handle subdirectories - link executables inside them
-			subdir := filepath.Join(binDir, name)
-			if err := os.MkdirAll(subdir, 0755); err != nil {
-				continue
-			}
-			subEntries, err := os.ReadDir(src)
+		if !e.IsDir() {
+			info, err := e.Info()
 			if err != nil {
 				continue
 			}
-			for _, se := range subEntries {
-				seName := se.Name()
-				seSrc := filepath.Join(src, seName)
-				if !se.IsDir() {
-					info, err := se.Info()
-					if err != nil {
-						continue
-					}
-					if info.Mode()&0111 != 0 {
-						link(seSrc, filepath.Join(subdir, seName))
-					}
-				}
+			if info.Mode()&0o111 != 0 && name != "builder" {
+				link(src, filepath.Join(binDir, name))
 			}
 			continue
 		}
 
-		// Link executable files (skip builder)
-		info, err := e.Info()
+		subdir := filepath.Join(binDir, name)
+		if err := os.MkdirAll(subdir, 0o755); err != nil {
+			continue
+		}
+		subEntries, err := os.ReadDir(src)
 		if err != nil {
 			continue
 		}
-		if info.Mode()&0111 != 0 && name != "builder" {
-			link(src, filepath.Join(binDir, name))
+		for _, se := range subEntries {
+			if se.IsDir() {
+				continue
+			}
+			seName := se.Name()
+			seSrc := filepath.Join(src, seName)
+			info, err := se.Info()
+			if err != nil {
+				continue
+			}
+			if info.Mode()&0o111 != 0 {
+				link(seSrc, filepath.Join(subdir, seName))
+			}
 		}
 	}
 

@@ -1,15 +1,16 @@
+// Package cmd provides the CLI commands for mochii.
 package cmd
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/0x0Dx/x/mochii/internal/build"
+	"github.com/0x0Dx/x/mochii/internal/builder"
 	"github.com/0x0Dx/x/mochii/internal/db"
-	"github.com/0x0Dx/x/mochii/internal/hash"
+	"github.com/0x0Dx/x/mochii/internal/hasher"
+	"github.com/0x0Dx/x/mochii/internal/helper"
 	"github.com/0x0Dx/x/mochii/internal/prebuilts"
 	"github.com/0x0Dx/x/mochii/internal/profile"
-	"github.com/0x0Dx/x/mochii/internal/util"
 )
 
 // Config holds mochii configuration paths.
@@ -25,7 +26,7 @@ type Config struct {
 // DefaultConfig creates a Config with default paths.
 // Uses MOCHII_HOME env var or /var/mochii as base.
 func DefaultConfig() *Config {
-	home := util.Getenv("MOCHII_HOME", "/var/mochii")
+	home := helper.Getenv("MOCHII_HOME", "/var/mochii")
 	return &Config{
 		HomeDir:      home,
 		SourcesDir:   home + "/sources",
@@ -40,8 +41,8 @@ func DefaultConfig() *Config {
 func EnsureDirs(cfg *Config) error {
 	dirs := []string{cfg.HomeDir, cfg.SourcesDir, cfg.LogDir, cfg.ProfileDir, cfg.PrebuiltsDir}
 	for _, d := range dirs {
-		if err := util.EnsureDir(d); err != nil {
-			return err
+		if err := helper.EnsureDir(d); err != nil {
+			return fmt.Errorf("ensure dir %s: %w", d, err)
 		}
 	}
 	return nil
@@ -51,7 +52,7 @@ func EnsureDirs(cfg *Config) error {
 type CLI struct {
 	cfg      *Config
 	db       *db.DB
-	builder  *build.Builder
+	builder  *builder.Builder
 	profiler *profile.Profile
 	prebuilt *prebuilts.Prebuilt
 }
@@ -61,15 +62,15 @@ func New() (*CLI, error) {
 	cfg := DefaultConfig()
 
 	if err := EnsureDirs(cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ensure dirs: %w", err)
 	}
 
 	database, err := db.EnsureDB(cfg.DBPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ensure db: %w", err)
 	}
 
-	b := build.New(database, cfg.SourcesDir, cfg.HomeDir+"/pkg", cfg.LogDir)
+	b := builder.New(database, cfg.SourcesDir, cfg.HomeDir+"/pkg", cfg.LogDir)
 	p := profile.New(cfg.ProfileDir)
 	pre := prebuilts.New(b, cfg.PrebuiltsDir)
 
@@ -78,19 +79,22 @@ func New() (*CLI, error) {
 
 // Close closes the CLI and underlying resources.
 func (c *CLI) Close() error {
-	return c.db.Close()
+	if err := c.db.Close(); err != nil {
+		return fmt.Errorf("close db: %w", err)
+	}
+	return nil
 }
 
 // GetPkg builds and installs a package by hash.
 func (c *CLI) GetPkg(h string) error {
-	hash, err := hash.Parse(h)
+	pkgHash, err := hasher.Parse(h)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse hash: %w", err)
 	}
 
-	path, err := c.builder.Install(hash)
+	path, err := c.builder.Install(pkgHash)
 	if err != nil {
-		return err
+		return fmt.Errorf("install package: %w", err)
 	}
 
 	fmt.Println(path)
@@ -99,29 +103,35 @@ func (c *CLI) GetPkg(h string) error {
 
 // Run executes an installed package.
 func (c *CLI) Run(h string, args []string) error {
-	hash, err := hash.Parse(h)
+	pkgHash, err := hasher.Parse(h)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse hash: %w", err)
 	}
 
-	return c.builder.Run(hash, args)
+	if err := c.builder.Run(pkgHash, args); err != nil {
+		return fmt.Errorf("run package: %w", err)
+	}
+	return nil
 }
 
 // Delete removes an installed package.
 func (c *CLI) Delete(h string) error {
-	hash, err := hash.Parse(h)
+	pkgHash, err := hasher.Parse(h)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse hash: %w", err)
 	}
 
-	return c.builder.Delete(hash)
+	if err := c.builder.Delete(pkgHash); err != nil {
+		return fmt.Errorf("delete package: %w", err)
+	}
+	return nil
 }
 
 // ListInstalled lists all installed packages.
 func (c *CLI) ListInstalled() error {
 	pkgs, err := c.builder.ListInstalled()
 	if err != nil {
-		return err
+		return fmt.Errorf("list installed: %w", err)
 	}
 
 	for h, path := range pkgs {
@@ -131,25 +141,28 @@ func (c *CLI) ListInstalled() error {
 	return nil
 }
 
-// RegisterFile registers a source file by hash.
+// RegisterFile registers a source file by 	hasher.
 func (c *CLI) RegisterFile(path string) error {
 	h, err := c.builder.RegisterFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("register file: %w", err)
 	}
 
 	fmt.Println(h)
 	return nil
 }
 
-// RegisterURL registers a network URL for a package hash.
+// RegisterURL registers a network URL for a package 	hasher.
 func (c *CLI) RegisterURL(hStr, url string) error {
-	h, err := hash.Parse(hStr)
+	h, err := hasher.Parse(hStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse hash: %w", err)
 	}
 
-	return c.builder.RegisterURL(h, url)
+	if err := c.builder.RegisterURL(h, url); err != nil {
+		return fmt.Errorf("register url: %w", err)
+	}
+	return nil
 }
 
 // Fetch fetches a URL (not fully implemented).
@@ -162,13 +175,13 @@ func (c *CLI) Fetch(url string) error {
 func (c *CLI) Verify() error {
 	pkgs, err := c.builder.ListInstalled()
 	if err != nil {
-		return err
+		return fmt.Errorf("list installed: %w", err)
 	}
 
 	for h, path := range pkgs {
-		if !util.DirExists(path) {
+		if !helper.DirExists(path) {
 			fmt.Printf("package %s at %s is missing\n", h, path)
-			if err := c.builder.Delete(hash.Hash(h)); err != nil {
+			if err := c.builder.Delete(hasher.Hash(h)); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: delete failed: %v\n", err)
 			}
 		}
@@ -179,19 +192,22 @@ func (c *CLI) Verify() error {
 
 // SwitchProfile switches to a package in the profile.
 func (c *CLI) SwitchProfile(h, pkgPath string) error {
-	hash, err := hash.Parse(h)
+	pkgHash, err := hasher.Parse(h)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse hash: %w", err)
 	}
 
-	return c.profiler.Switch(hash, pkgPath)
+	if err := c.profiler.Switch(pkgHash, pkgPath); err != nil {
+		return fmt.Errorf("switch profile: %w", err)
+	}
+	return nil
 }
 
 // ListProfiles lists all profile generations.
 func (c *CLI) ListProfiles() error {
 	gens, err := c.profiler.ListGenerations()
 	if err != nil {
-		return err
+		return fmt.Errorf("list generations: %w", err)
 	}
 
 	current, _ := c.profiler.Current()
@@ -211,7 +227,7 @@ func (c *CLI) ListProfiles() error {
 func (c *CLI) CollectGarbage() error {
 	toDelete, err := c.builder.CollectGarbage(c.cfg.ProfileDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("collect garbage: %w", err)
 	}
 
 	if len(toDelete) == 0 {
@@ -226,7 +242,7 @@ func (c *CLI) CollectGarbage() error {
 
 	for _, h := range toDelete {
 		fmt.Printf("deleting %s...\n", h)
-		if err := c.builder.Delete(hash.Hash(h)); err != nil {
+		if err := c.builder.Delete(hasher.Hash(h)); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: delete failed: %v\n", err)
 		}
 	}
@@ -237,12 +253,18 @@ func (c *CLI) CollectGarbage() error {
 // PullPrebuilts pulls prebuilt packages from URLs.
 func (c *CLI) PullPrebuilts(urls []string) error {
 	config := &prebuilts.PrebuiltConfig{URLs: urls}
-	return c.prebuilt.Pull(config)
+	if err := c.prebuilt.Pull(config); err != nil {
+		return fmt.Errorf("pull prebuilts: %w", err)
+	}
+	return nil
 }
 
 // PushPrebuilts exports installed packages as prebuilts.
 func (c *CLI) PushPrebuilts(exportDir string) error {
-	return c.prebuilt.Push(exportDir)
+	if err := c.prebuilt.Push(exportDir); err != nil {
+		return fmt.Errorf("push prebuilts: %w", err)
+	}
+	return nil
 }
 
 // PrintUsage prints the CLI usage message.
