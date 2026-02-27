@@ -32,7 +32,7 @@ tasks:
     desc: Run base linters for all packages
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run {{if eq .GITHUB_ACTIONS "true"}}--out-format=github-actions{{end}}
+        cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run
   
   lint:fix:
     desc: Run base linters and fix issues for all packages
