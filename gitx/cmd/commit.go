@@ -35,21 +35,6 @@ var commitCmd = &cobra.Command{
 	},
 }
 
-var statusCmd = &cobra.Command{
-	Use:   "st",
-	Short: "Show working tree status",
-	Run: func(_ *cobra.Command, _ []string) {
-		cmd := exec.Command("git", "status", "--short")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Error:", err)
-			os.Exit(1)
-		}
-	},
-}
-
 func init() {
 	RootCmd.AddCommand(commitCmd)
-	RootCmd.AddCommand(statusCmd)
 }
