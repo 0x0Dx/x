@@ -18,7 +18,7 @@ func Hash(path string) (string, error) {
 
 	// Write version header
 	if err := tw.WriteHeader(&tar.Header{
-		Name:     "nix-2.11",
+		Name:     "mochi-1.0",
 		Mode:     0,
 		Size:     0,
 		Typeflag: tar.TypeDir,
@@ -101,7 +101,7 @@ func (nw *Writer) WriteDir(path string) error {
 
 	// Write narinfodump(narVersion);
 	if err := tw.WriteHeader(&tar.Header{
-		Name:     "nix-2.11",
+		Name:     "mochi-1.0",
 		Mode:     0,
 		Size:     0,
 		Typeflag: tar.TypeDir,
