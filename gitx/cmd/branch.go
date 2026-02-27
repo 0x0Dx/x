@@ -10,7 +10,7 @@ import (
 
 var branchCmd = &cobra.Command{
 	Use:   "br [-d <branch>] [-c <branch>] [-s <branch>]",
-	Short: "List, create, or delete branches",
+	Short: "List, create, switch, or delete branches",
 	Run: func(cc *cobra.Command, _ []string) {
 		deleteBranch, _ := cc.Flags().GetString("delete")
 		createBranch, _ := cc.Flags().GetString("create")
@@ -41,14 +41,14 @@ var branchCmd = &cobra.Command{
 		}
 
 		if switchBranch != "" {
-			cmd := exec.Command("git", "checkout", "-b", switchBranch)
+			cmd := exec.Command("git", "checkout", switchBranch)
 			cmd.Stdout = nil
 			cmd.Stderr = nil
 			if err := cmd.Run(); err != nil {
 				fmt.Fprintln(os.Stderr, "Error:", err)
 				os.Exit(1)
 			}
-			fmt.Println("✓ Created and switched to branch:", switchBranch)
+			fmt.Println("✓ Switched to branch:", switchBranch)
 			return
 		}
 
@@ -62,25 +62,9 @@ var branchCmd = &cobra.Command{
 	},
 }
 
-var swapCmd = &cobra.Command{
-	Use:   "swap",
-	Short: "Swap to previous branch",
-	Run: func(_ *cobra.Command, _ []string) {
-		cmd := exec.Command("git", "checkout", "-")
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Error:", err)
-			os.Exit(1)
-		}
-		fmt.Println("✓ Swapped to previous branch")
-	},
-}
-
 func init() {
 	branchCmd.Flags().StringP("delete", "d", "", "Delete a branch")
 	branchCmd.Flags().StringP("create", "c", "", "Create a branch")
-	branchCmd.Flags().StringP("switch", "s", "", "Create and switch to a new branch")
+	branchCmd.Flags().StringP("switch", "s", "", "Switch to a branch")
 	RootCmd.AddCommand(branchCmd)
-	RootCmd.AddCommand(swapCmd)
 }

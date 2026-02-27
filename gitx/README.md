@@ -17,9 +17,8 @@ go install github.com/0x0Dx/x/gitx@main
 | `gitx co -b <branch>` | Create and checkout new branch |
 | `gitx br` | List branches |
 | `gitx br -c <branch>` | Create a branch |
-| `gitx br -s <branch>` | Create and switch to a branch |
+| `gitx br -s <branch>` | Switch to a branch |
 | `gitx br -d <branch>` | Delete a branch |
-| `gitx swap` | Swap to previous branch |
 | `gitx ci <msg>` | Stage all and commit |
 | `gitx st` | Show status |
 | `gitx push` | Push to remote |
