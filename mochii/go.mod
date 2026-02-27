@@ -5,6 +5,7 @@ go 1.25.7
 require modernc.org/sqlite v1.46.1
 
 require (
+	github.com/Shopify/go-lua v0.0.0-20250718183320-1e37f32ad7d0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
