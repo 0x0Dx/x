@@ -1,131 +1,155 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
-
 version: '3'
 
 vars:
-  PACKAGES: [
-    go/cliimage,
-    go/goserv,
-    go/gitx,
-  ]
-  PLATFORMS: [
-    linux/amd64,
-    linux/arm64,
-    darwin/amd64,
-    darwin/arm64,
-    windows/amd64,
-  ]
+  PACKAGES:
+    - go/cliimage
+    - go/goserv
+    - go/gitx
+  PLATFORMS:
+    - linux/amd64
+    - linux/arm64
+    - darwin/amd64
+    - darwin/arm64
+    - windows/amd64
 
 tasks:
   fmt:
     desc: Run gofumpt for all packages
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && $HOME/go/bin/gofumpt -w .
+        cmd: cd {{.ITEM}} && gofumpt -w .
+
   modernize:
     desc: Run modernize for all packages
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && $HOME/go/bin/modernize -fix ./...
+        cmd: cd {{.ITEM}} && modernize -fix ./...
+
   lint:
-    desc: Run base linters for all packages
+    desc: Run linters for all packages
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run
+        cmd: cd {{.ITEM}} && golangci-lint run
+
   lint:fix:
-    desc: Run base linters and fix issues for all packages
+    desc: Run linters and fix issues
     cmds:
       - for: { var: PACKAGES }
-        cmd: cd {{.ITEM}} && $HOME/go/bin/golangci-lint run --fix
+        cmd: cd {{.ITEM}} && golangci-lint run --fix
+
   test:
     desc: Run tests for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && go test ./...
+
   tidy:
-    desc: Run `go mod tidy` for all packages
+    desc: Run go mod tidy for all packages
     cmds:
       - for: { var: PACKAGES }
         cmd: cd {{.ITEM}} && go mod tidy
+
   build:
-    desc: Build all binaries
+    desc: Build all binaries for local development
     cmds:
       - rm -rf ./bin && mkdir ./bin
       - for: { var: PACKAGES }
         cmd: |
           NAME=$(basename {{.ITEM}})
           cd {{.ITEM}} && go build -o ../../bin/$NAME .
+
   install:
-    desc: Install all binaries
+    desc: Install all binaries to $GOPATH/bin
     cmds:
       - for: { var: PACKAGES }
-        cmd: |
-          NAME=$(basename {{.ITEM}})
-          cd {{.ITEM}} && go install -v .
+        cmd: cd {{.ITEM}} && go install -v .
+
   install:tools:
-    desc: Install all tools needed
+    desc: Install development tools
     cmds:
       - go install mvdan.cc/gofumpt@latest
       - go install golang.org/x/tools/cmd/goimports@latest
       - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
   release:
-    desc: Build and publish release binaries
+    desc: Build release artifacts (usage: task release VERSION=v1.0.0)
     vars:
       VERSION: '{{.VERSION | default "dev"}}'
     cmds:
-      - task: release:build
-      - task: release:checksums
-      - echo "Release artifacts in ./dist"
-      - task: release:publish
-  release:build:
+      - rm -rf ./dist && mkdir -p ./dist
+      - task: _release:binaries
+      - task: _release:checksums
+      - echo "Release {{.VERSION}} built in ./dist"
+      - echo "Publish with: gh release create {{.VERSION}} dist/*"
+
+  _release:binaries:
     internal: true
+    vars:
+      VERSION: '{{.VERSION | default "dev"}}'
     cmds:
       - for: { var: PLATFORMS }
-        task: release:build:platform
+        task: _release:platform
         vars:
           PLATFORM: '{{.ITEM}}'
-  release:build:platform:
+          VERSION: '{{.VERSION}}'
+
+  _release:platform:
     internal: true
     vars:
+      GOOS: { sh: "echo {{.PLATFORM}} | cut -d'/' -f1" }
+      GOARCH: { sh: "echo {{.PLATFORM}} | cut -d'/' -f2" }
       VERSION: '{{.VERSION | default "dev"}}'
-      GOOS:
-        sh: echo {{.PLATFORM}} | cut -d'/' -f1
-      GOARCH:
-        sh: echo {{.PLATFORM}} | cut -d'/' -f2
     cmds:
       - for: { var: PACKAGES }
         cmd: |
           TOOL=$(basename {{.ITEM}})
           EXT=""
           [[ "{{.GOOS}}" == "windows" ]] && EXT=".exe"
-
+          
           OUTPUT="dist/${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}${EXT}"
-
+          ARCHIVE="${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}"
+          
           echo "Building $TOOL for {{.GOOS}}/{{.GOARCH}}..."
-          cd {{.ITEM}} && \
+          
+          cd {{.ITEM}}
           CGO_ENABLED=0 GOOS={{.GOOS}} GOARCH={{.GOARCH}} \
-            go build -ldflags="-s -w -X main.version={{.VERSION}}" -o ../../$OUTPUT .
-
+            go build -ldflags="-s -w -X main.version={{.VERSION}}" \
+            -o ../../$OUTPUT .
+          
           cd ../../dist
           if [[ "{{.GOOS}}" == "windows" ]]; then
-            zip "${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}.zip" "$(basename $OUTPUT)"
-            rm "$(basename $OUTPUT)"
+            zip "${ARCHIVE}.zip" "$(basename $OUTPUT)"
           else
-            tar czf "${TOOL}_{{.VERSION}}_{{.GOOS}}_{{.GOARCH}}.tar.gz" "$(basename $OUTPUT)"
-            rm "$(basename $OUTPUT)"
+            tar czf "${ARCHIVE}.tar.gz" "$(basename $OUTPUT)"
           fi
-  release:checksums:
+          rm "$(basename $OUTPUT)"
+
+  _release:checksums:
     internal: true
     cmds:
-      - cd dist && shasum -a 256 * > checksums.txt
+      - cd dist && shasum -a 256 *.{tar.gz,zip} > checksums.txt 2>/dev/null || true
+
   release:publish:
-    desc: Publish release to GitHub
+    desc: Publish release to GitHub (usage: task release:publish VERSION=v1.0.0)
     vars:
       VERSION: '{{.VERSION | default "dev"}}'
     preconditions:
       - sh: command -v gh
         msg: "gh CLI not found. Install from https://cli.github.com"
+      - sh: test -d dist
+        msg: "Run 'task release VERSION={{.VERSION}}' first"
     cmds:
-      - task: release:build
-      - task: release:checksums
       - gh release create {{.VERSION}} dist/* --generate-notes
+
+  check:
+    desc: Run all checks (fmt, lint, test)
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf ./bin ./dist
