@@ -154,3 +154,21 @@ RUN cd /sources && tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
   sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/g' .config && \
   make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" && \
   make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/sysroot" install
+
+# Musl
+FROM stage0 AS musl-stage0
+
+ENV MUSL_VERSION=1.2.5
+
+RUN mkdir /sources && cd /sources && \
+  wget https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz
+
+RUN cd /sources && tar -xvf musl-${MUSL_VERSION}.tar.gz && \
+  cd musl-${MUSL_VERSION} && \
+  ./configure \
+    CROSS_COMPILE=${TARGET}- \
+    --prefix=/usr \
+    --disable-static \
+    --target=${TARGET} && \
+  make -j${JOBS} &&\
+  DESTDIR=/sysroot make -j${JOBS} install
