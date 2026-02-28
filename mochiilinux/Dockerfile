@@ -327,6 +327,23 @@ COPY --from=stage1-merge /skeleton /
 
 
 # =============================================================================
+# Kernel Build Stage
+# =============================================================================
+FROM stage1 AS kernel
+
+COPY src/.config /config
+COPY src/0_prepare.sh /0_prepare.sh
+COPY src/1_get_kernel.sh /1_get_kernel.sh
+COPY src/2_build_kernel.sh /2_build_kernel.sh
+
+RUN chmod +x /*.sh
+
+RUN /0_prepare.sh && \
+  /1_get_kernel.sh && \
+  /2_build_kernel.sh
+
+
+# =============================================================================
 # Build dependencies
 # =============================================================================
 FROM alpine AS build-deps
@@ -1025,6 +1042,7 @@ COPY --from=zlib /zlib /zlib
 COPY --from=libcap /libcap /libcap
 COPY --from=util-linux /util-linux /util-linux
 COPY --from=systemd /systemd /systemd
+COPY --from=kernel /work/kernel /kernel
 
 RUN rsync -aHAX --keep-dirlinks /cross-root/. /skeleton && \
   rsync -aHAX --keep-dirlinks /coreutils/. /skeleton && \
@@ -1041,7 +1059,11 @@ RUN rsync -aHAX --keep-dirlinks /cross-root/. /skeleton && \
   rsync -aHAX --keep-dirlinks /zlib/. /skeleton && \
   rsync -aHAX --keep-dirlinks /libcap/. /skeleton && \
   rsync -aHAX --keep-dirlinks /util-linux/. /skeleton && \
-  rsync -aHAX --keep-dirlinks /systemd/. /skeleton
+  rsync -aHAX --keep-dirlinks /systemd/. /skeleton && \
+  rsync -aHAX --keep-dirlinks /kernel/. /skeleton/kernel
+
+RUN mkdir -p /skeleton/boot && \
+  cp /skeleton/kernel/*/vmlinux /skeleton/boot/vmlinux
 
 RUN rm -rf /skeleton/usr/include
 
@@ -1061,5 +1083,7 @@ FROM stage2 AS test2
 SHELL ["/bin/bash", "-c"]
 
 RUN ls -la / && \
+  ls -la /boot/ && \
+  file /boot/vmlinux && \
   curl --version && \
   echo "Build successful!"
