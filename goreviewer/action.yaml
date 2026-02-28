@@ -309,6 +309,7 @@ runs:
 
     - name: Skip - no changes
       if: steps.check_mention.outputs.MENTIONED == 'false' && steps.get_diff.outputs.DIFF_EMPTY == 'true'
+      shell: bash
       run: echo "No code changes to review"
 
     - name: Respond to command

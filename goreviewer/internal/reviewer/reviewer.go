@@ -505,20 +505,20 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 
 	var resp apiResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return errorResponse(fmt.Sprintf("Invalid JSON response from API: %v", err)), fmt.Errorf("unmarshal response: %w", err)
+		return errorResponse(fmt.Sprintf("Failed to parse API response - the response wasn't valid JSON. This usually means the API is down, rate limited, or returning an error page. Check your API key and try again later. Details: %v", err)), fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if resp.Error.Message != "" {
-		return errorResponse(fmt.Sprintf("API error: %s", resp.Error.Message)), errors.New(resp.Error.Message)
+		return errorResponse(fmt.Sprintf("The API returned an error: '%s'. This usually means your API key is invalid, expired, or you've hit a rate limit. Check your API key and try again.", resp.Error.Message)), errors.New(resp.Error.Message)
 	}
 
 	if len(resp.Choices) == 0 {
-		return errorResponse("No choices in API response"), errors.New("empty response")
+		return errorResponse("The API returned no response choices. This usually means the model is rate limited or unavailable. Try again later."), errors.New("empty response")
 	}
 
 	content := resp.Choices[0].Message.Content
 	if content == "" {
-		return errorResponse("Empty response content"), errors.New("empty content")
+		return errorResponse("The API returned an empty response. This usually means the model is rate limited or had an error. Try again later."), errors.New("empty content")
 	}
 
 	content = removeThinking(content)
@@ -530,7 +530,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		if len(truncated) > 500 {
 			truncated = truncated[:500] + "..."
 		}
-		return errorResponse(fmt.Sprintf("No valid JSON found in response. Got: %s", truncated)), errors.New("no JSON in response")
+		return errorResponse(fmt.Sprintf("The API returned text but it wasn't valid JSON. The model might be confused or rate limited. Here's what we got: %s", truncated)), errors.New("no JSON in response")
 	}
 
 	var result ReviewResponse
