@@ -497,3 +497,18 @@ RUN mkdir -p /sources && cd /sources && \
   CC=gcc make DESTDIR=/zstd && \
   make DESTDIR=/zstd install && \
   make install
+
+# Zstd
+FROM zstd AS lz4
+
+ENV LZ4_VERSION=1.10.0
+
+COPY --from=sources-downloader /sources/downloads/lz4-${LZ4_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf lz4-${LZ4_VERSION}.tar.xz && \
+  cd lz4-${LZ4_VERSION} && \
+  mkdir -p /lz4 && \
+  CC=gcc make PREFIX="/usr" DESTDIR=/lz4 && \
+  make DESTDIR=/lz4 install && \
+  make install
