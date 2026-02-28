@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 	"github.com/0x0Dx/x/goreviewer/internal/reviewer"
@@ -54,22 +55,7 @@ var reviewCmd = &cobra.Command{
 			DisableReview: disableReview,
 		}
 
-		var ghClient *github.Client
-		if ghToken != "" || (ghToken == "" && github.GetEnvToken() != "") {
-			ghClient = github.NewClient()
-			token := ghToken
-			if token == "" {
-				token = github.GetEnvToken()
-			}
-			ghClient.SetToken(token)
-
-			if prNumber > 0 && repoFullName != "" {
-				parts := splitRepo(repoFullName)
-				if len(parts) == 2 {
-					ghClient.SetPR(parts[0], parts[1], prNumber)
-				}
-			}
-		}
+		ghClient := getGitHubClientForPR()
 
 		r := reviewer.New(cfg, ghClient)
 		result, err := r.Review(context.Background(), string(diffContent))
@@ -85,13 +71,7 @@ var reviewCmd = &cobra.Command{
 		}
 
 		if postToGitHub && ghClient != nil && prNumber > 0 && repoFullName != "" {
-			_ = ghClient.PostReview(context.Background(), result.Review)
-
-			for _, label := range result.LabelsAdded {
-				if label != "" {
-					_ = ghClient.AddLabel(context.Background(), label)
-				}
-			}
+			postReview(ghClient, result.Review, result.LabelsAdded)
 		}
 
 		fmt.Println(jsonOut)
@@ -146,15 +126,7 @@ var runCmd = &cobra.Command{
 		}
 
 		if ghClient != nil {
-			_ = ghClient.PostReview(context.Background(), result.Review)
-
-			for _, label := range result.LabelsAdded {
-				if label != "" {
-					_ = ghClient.AddLabel(context.Background(), label)
-				}
-			}
-
-			_ = ghClient.RemoveLabel(context.Background(), "ai_code_review")
+			postReview(ghClient, result.Review, result.LabelsAdded)
 		}
 
 		fmt.Println("✅ Review completed")
@@ -163,12 +135,41 @@ var runCmd = &cobra.Command{
 }
 
 func splitRepo(s string) []string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '/' {
-			return []string{s[:i], s[i+1:]}
+	return strings.SplitN(s, "/", 2)
+}
+
+func getGitHubClientForPR() *github.Client {
+	if ghToken == "" && github.GetEnvToken() == "" {
+		return nil
+	}
+
+	ghClient := github.NewClient()
+	token := ghToken
+	if token == "" {
+		token = github.GetEnvToken()
+	}
+	ghClient.SetToken(token)
+
+	if prNumber > 0 && repoFullName != "" {
+		parts := splitRepo(repoFullName)
+		if len(parts) == 2 {
+			ghClient.SetPR(parts[0], parts[1], prNumber)
 		}
 	}
-	return []string{s}
+
+	return ghClient
+}
+
+func postReview(ghClient *github.Client, review string, labels []string) {
+	if ghClient == nil {
+		return
+	}
+	_ = ghClient.PostReview(context.Background(), review)
+	for _, label := range labels {
+		if label != "" {
+			_ = ghClient.AddLabel(context.Background(), label)
+		}
+	}
 }
 
 func init() {
@@ -197,11 +198,13 @@ func init() {
 	RootCmd.AddCommand(runCmd)
 }
 
-var commentID int64
-var commentBody string
-var diffHunk string
-var commentFile string
-var commentLine int
+var (
+	commentID   int64
+	commentBody string
+	diffHunk    string
+	commentFile string
+	commentLine int
+)
 
 var commentCmd = &cobra.Command{
 	Use:   "comment",
@@ -221,22 +224,7 @@ var commentCmd = &cobra.Command{
 			OpenAIBaseURL: openAIBaseURL,
 		}
 
-		var ghClient *github.Client
-		if ghToken != "" || (ghToken == "" && github.GetEnvToken() != "") {
-			ghClient = github.NewClient()
-			token := ghToken
-			if token == "" {
-				token = github.GetEnvToken()
-			}
-			ghClient.SetToken(token)
-
-			if prNumber > 0 && repoFullName != "" {
-				parts := splitRepo(repoFullName)
-				if len(parts) == 2 {
-					ghClient.SetPR(parts[0], parts[1], prNumber)
-				}
-			}
-		}
+		ghClient := getGitHubClientForPR()
 
 		r := reviewer.New(cfg, ghClient)
 
