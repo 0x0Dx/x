@@ -52,7 +52,10 @@ RUN apk update && apk add \
   linux-headers \
   gmp \
   mpfr \
-  mpc
+  mpc \
+  gawk \
+  bison \
+  python3
 
 # Build glibc for cross-compilation
 ENV GLIBC_VERSION=2.40
