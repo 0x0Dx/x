@@ -196,3 +196,90 @@ func init() {
 	runCmd.Flags().BoolVar(&disableReview, "disable-review", false, "Only provide summary")
 	RootCmd.AddCommand(runCmd)
 }
+
+var commentID int64
+var commentBody string
+var diffHunk string
+var commentFile string
+var commentLine int
+
+var commentCmd = &cobra.Command{
+	Use:   "comment",
+	Short: "Respond to a review comment",
+	Long:  "Responds to a GitHub PR review comment using AI.",
+	Args:  cobra.NoArgs,
+	RunE: func(_ *cobra.Command, _ []string) error {
+		cfg := reviewer.Config{
+			Model:         model,
+			Temperature:   temperature,
+			MaxTokens:     maxTokens,
+			Debug:         verbose,
+			LightModel:    lightModel,
+			HeavyModel:    heavyModel,
+			SystemMessage: systemMessage,
+			Language:      language,
+			OpenAIBaseURL: openAIBaseURL,
+		}
+
+		var ghClient *github.Client
+		if ghToken != "" || (ghToken == "" && github.GetEnvToken() != "") {
+			ghClient = github.NewClient()
+			token := ghToken
+			if token == "" {
+				token = github.GetEnvToken()
+			}
+			ghClient.SetToken(token)
+
+			if prNumber > 0 && repoFullName != "" {
+				parts := splitRepo(repoFullName)
+				if len(parts) == 2 {
+					ghClient.SetPR(parts[0], parts[1], prNumber)
+				}
+			}
+		}
+
+		r := reviewer.New(cfg, ghClient)
+
+		req := reviewer.ReviewCommentRequest{
+			Comment:   commentBody,
+			DiffHunk:  diffHunk,
+			Path:      commentFile,
+			Line:      commentLine,
+			PRNumber:  prNumber,
+			RepoOwner: repoFullName,
+			RepoName:  "",
+		}
+
+		resp, err := r.RespondToReviewComment(context.Background(), req)
+		if err != nil {
+			return fmt.Errorf("respond to comment failed: %w", err)
+		}
+
+		if ghClient != nil && commentID > 0 {
+			if err := ghClient.ReplyToReviewComment(context.Background(), commentID, resp); err != nil {
+				return fmt.Errorf("reply to comment: %w", err)
+			}
+			fmt.Println("Replied to comment")
+		} else {
+			fmt.Println(resp)
+		}
+
+		return nil
+	},
+}
+
+func init() {
+	commentCmd.Flags().Int64Var(&commentID, "comment-id", 0, "Comment ID to reply to")
+	commentCmd.Flags().StringVar(&commentBody, "comment", "", "Comment body")
+	commentCmd.Flags().StringVar(&diffHunk, "diff-hunk", "", "Diff hunk context")
+	commentCmd.Flags().StringVar(&commentFile, "file", "", "File path")
+	commentCmd.Flags().IntVar(&commentLine, "line", 0, "Line number")
+	commentCmd.Flags().StringVar(&repoFullName, "repo", "", "Repository (owner/repo)")
+	commentCmd.Flags().IntVar(&prNumber, "pr", 0, "PR number")
+	commentCmd.Flags().StringVar(&lightModel, "light-model", "", "Model for chat")
+	commentCmd.Flags().StringVar(&heavyModel, "heavy-model", "", "Model for chat")
+	commentCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
+	commentCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
+	commentCmd.Flags().StringVar(&ghToken, "token", "", "GitHub token")
+	RootCmd.AddCommand(commentCmd)
+}

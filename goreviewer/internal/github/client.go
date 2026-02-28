@@ -243,6 +243,15 @@ func (c *Client) PostReview(ctx context.Context, body string) error {
 	return nil
 }
 
+// ReplyToReviewComment replies to a specific review comment.
+func (c *Client) ReplyToReviewComment(ctx context.Context, commentID int64, body string) error {
+	_, _, err := c.ghClient.PullRequests.CreateCommentInReplyTo(ctx, c.owner, c.repo, c.prNumber, body, commentID)
+	if err != nil {
+		return fmt.Errorf("reply to comment: %w", err)
+	}
+	return nil
+}
+
 // AddLabel adds a label to the PR.
 func (c *Client) AddLabel(ctx context.Context, label string) error {
 	if c.owner == "" || c.repo == "" || c.prNumber == 0 {
