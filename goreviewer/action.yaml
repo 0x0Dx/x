@@ -118,4 +118,7 @@ runs:
         PR_NUMBER: "${{ github.event.pull_request.number }}"
         REPO_FULL_NAME: "${{ github.repository }}"
         DEBUG: "${{ inputs.debug }}"
-      run: go run . run --pr "$PR_NUMBER" --repo "$REPO_FULL_NAME" --light-model "${{ inputs.openai_light_model }}" --heavy-model "${{ inputs.openai_heavy_model }}" --system-message "${{ inputs.system_message }}" --language "${{ inputs.language }}" --openai-base-url "${{ inputs.openai_base_url }}" < diff.txt
+      run: |
+        cd goreviewer
+        go build -o goreviewer .
+        ./goreviewer run --pr "$PR_NUMBER" --repo "$REPO_FULL_NAME" --light-model "${{ inputs.openai_light_model }}" --heavy-model "${{ inputs.openai_heavy_model }}" --system-message "${{ inputs.system_message }}" --language "${{ inputs.language }}" --openai-base-url "${{ inputs.openai_base_url }}" < ../diff.txt
