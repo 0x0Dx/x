@@ -279,8 +279,8 @@ runs:
         fi
         
         # Check issue comment (comment on PR)
-        if [ -z "$COMMENT_BODY" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
-          if [ -n "${{ github.event.comment.body }}" ]; then
+        if [ -z "$COMMENT_BODY" ] && [ "${{ github.event_name }}" = "issue_comment" ]; then
+          if [ "${{ github.event.issue.pull_request }}" != "" ]; then
             COMMENT_BODY="${{ github.event.comment.body }}"
           fi
         fi
@@ -293,6 +293,15 @@ runs:
         else
           echo "MENTIONED=false" >> $GITHUB_OUTPUT
         fi
+
+    - name: Get PR number
+      id: get_pr
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "issue_comment" ]; then
+          echo "PR_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+        else
+          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
         fi
 
     - name: Run goreviewer
@@ -301,7 +310,7 @@ runs:
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
         OPENAI_API_KEY: "${{ inputs.openai_api_key }}"
-        PR_NUMBER: "${{ github.event.pull_request.number }}"
+        PR_NUMBER: "${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL_NAME: "${{ github.repository }}"
         DEBUG: "${{ inputs.debug }}"
       run: |
@@ -320,9 +329,8 @@ runs:
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
         OPENAI_API_KEY: "${{ inputs.openai_api_key }}"
-        PR_NUMBER: "${{ github.event.pull_request.number }}"
+        PR_NUMBER: "${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL_NAME: "${{ github.repository }}"
-        COMMENT_ID: "${{ steps.check_mention.outputs.COMMENT_ID }}"
         COMMENT_BODY: "${{ steps.check_mention.outputs.COMMENT_BODY }}"
       run: |
         cd goreviewer
