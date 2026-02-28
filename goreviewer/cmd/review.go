@@ -62,7 +62,7 @@ var reviewCmd = &cobra.Command{
 			}
 			jsonOut, _ := result.ToJSON()
 			fmt.Println(jsonOut)
-			return err
+			return fmt.Errorf("review failed: %w", err)
 		}
 
 		jsonOut, err := result.ToJSON()

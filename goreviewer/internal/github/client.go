@@ -129,12 +129,12 @@ type Context struct {
 func (c *Client) fetchCheckRuns(ctx context.Context) (string, error) {
 	pr, _, err := c.ghClient.PullRequests.Get(ctx, c.owner, c.repo, c.prNumber)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get PR: %w", err)
 	}
 
 	status, _, err := c.ghClient.Repositories.GetCombinedStatus(ctx, c.owner, c.repo, pr.GetHead().GetSHA(), nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get combined status: %w", err)
 	}
 
 	var lines []string
@@ -149,7 +149,7 @@ func (c *Client) fetchCheckRuns(ctx context.Context) (string, error) {
 func (c *Client) fetchLabels(ctx context.Context) (string, error) {
 	labels, _, err := c.ghClient.Issues.ListLabels(ctx, c.owner, c.repo, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("list labels: %w", err)
 	}
 
 	var lines []string
@@ -167,7 +167,7 @@ func (c *Client) fetchLabels(ctx context.Context) (string, error) {
 func (c *Client) fetchPRDescription(ctx context.Context) (string, error) {
 	pr, _, err := c.ghClient.PullRequests.Get(ctx, c.owner, c.repo, c.prNumber)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get PR: %w", err)
 	}
 
 	title := pr.GetTitle()
@@ -182,7 +182,7 @@ func (c *Client) fetchPRDescription(ctx context.Context) (string, error) {
 func (c *Client) fetchCommits(ctx context.Context) (string, error) {
 	commits, _, err := c.ghClient.PullRequests.ListCommits(ctx, c.owner, c.repo, c.prNumber, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("list commits: %w", err)
 	}
 
 	var lines []string
@@ -202,7 +202,7 @@ func (c *Client) fetchCommits(ctx context.Context) (string, error) {
 func (c *Client) fetchPreviousReviews(ctx context.Context) (string, error) {
 	comments, _, err := c.ghClient.Issues.ListComments(ctx, c.owner, c.repo, c.prNumber, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("list comments: %w", err)
 	}
 
 	for i := len(comments) - 1; i >= 0; i-- {
@@ -218,7 +218,7 @@ func (c *Client) fetchPreviousReviews(ctx context.Context) (string, error) {
 func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 	comments, _, err := c.ghClient.Issues.ListComments(ctx, c.owner, c.repo, c.prNumber, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("list comments: %w", err)
 	}
 
 	var lines []string
@@ -235,9 +235,12 @@ func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 // PostReview posts a review comment to the PR.
 func (c *Client) PostReview(ctx context.Context, body string) error {
 	_, _, err := c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
-		Body: github.String(body),
+		Body: &body,
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("create comment: %w", err)
+	}
+	return nil
 }
 
 // GetEnvToken returns the GitHub token from environment.

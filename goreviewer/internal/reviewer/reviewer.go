@@ -94,50 +94,56 @@ func (r *Reviewer) buildPrompt(diffContent string) string {
 	b.WriteString("Respond ONLY with the JSON object, no other text.\n")
 
 	if r.ghClient != nil && r.ghClient.Token != "" {
-		ghCtx, err := r.ghClient.FetchContext(context.Background())
-		if err == nil {
-			if ghCtx.CheckRuns != "" {
-				b.WriteString("\nGitHub Actions Check Status:\n")
-				b.WriteString(ghCtx.CheckRuns)
-				b.WriteString("\n\nPlease consider any failed or pending checks in your review. If tests are failing, investigate whether the code changes might be the cause.\n")
-			}
-
-			if ghCtx.Labels != "" {
-				b.WriteString("\nAvailable Repository Labels:\nPlease prefer using existing labels from this list over creating new ones:\n")
-				b.WriteString(ghCtx.Labels)
-				b.WriteString("\n\nIf none of these labels are appropriate for the changes, you may suggest new ones.\n")
-			}
-
-			if ghCtx.PRDescription != "" {
-				b.WriteString("\nPull Request Context:\n")
-				b.WriteString(ghCtx.PRDescription)
-				b.WriteString("\n")
-			}
-
-			if ghCtx.Commits != "" {
-				b.WriteString("\nCommit History (showing development journey):\n")
-				b.WriteString(ghCtx.Commits)
-				b.WriteString("\n\nPlease consider the commit history to understand what was tried, what issues were discovered, and how the solution evolved.\n")
-			}
-
-			if ghCtx.HumanComments != "" {
-				b.WriteString("\nHuman Comments on this PR:\n")
-				b.WriteString(ghCtx.HumanComments)
-				b.WriteString("\n\nPlease consider these human comments when reviewing the code.\n")
-			}
-
-			if ghCtx.PreviousReview != "" {
-				b.WriteString("\nPrevious AI Review (for context on what was already reviewed):\n")
-				b.WriteString(ghCtx.PreviousReview)
-				b.WriteString("\n")
-			}
-		}
+		r.addGitHubContext(&b)
 	}
 
 	b.WriteString("\nCode diff to analyze:\n\n")
 	b.WriteString(diffContent)
 
 	return b.String()
+}
+
+func (r *Reviewer) addGitHubContext(b *strings.Builder) {
+	ghCtx, err := r.ghClient.FetchContext(context.Background())
+	if err != nil {
+		return
+	}
+
+	if ghCtx.CheckRuns != "" {
+		b.WriteString("\nGitHub Actions Check Status:\n")
+		b.WriteString(ghCtx.CheckRuns)
+		b.WriteString("\n\nPlease consider any failed or pending checks in your review. If tests are failing, investigate whether the code changes might be the cause.\n")
+	}
+
+	if ghCtx.Labels != "" {
+		b.WriteString("\nAvailable Repository Labels:\nPlease prefer using existing labels from this list over creating new ones:\n")
+		b.WriteString(ghCtx.Labels)
+		b.WriteString("\n\nIf none of these labels are appropriate for the changes, you may suggest new ones.\n")
+	}
+
+	if ghCtx.PRDescription != "" {
+		b.WriteString("\nPull Request Context:\n")
+		b.WriteString(ghCtx.PRDescription)
+		b.WriteString("\n")
+	}
+
+	if ghCtx.Commits != "" {
+		b.WriteString("\nCommit History (showing development journey):\n")
+		b.WriteString(ghCtx.Commits)
+		b.WriteString("\n\nPlease consider the commit history to understand what was tried, what issues were discovered, and how the solution evolved.\n")
+	}
+
+	if ghCtx.HumanComments != "" {
+		b.WriteString("\nHuman Comments on this PR:\n")
+		b.WriteString(ghCtx.HumanComments)
+		b.WriteString("\n\nPlease consider these human comments when reviewing the code.\n")
+	}
+
+	if ghCtx.PreviousReview != "" {
+		b.WriteString("\nPrevious AI Review (for context on what was already reviewed):\n")
+		b.WriteString(ghCtx.PreviousReview)
+		b.WriteString("\n")
+	}
 }
 
 type apiRequest struct {
@@ -190,7 +196,7 @@ func (r *Reviewer) callAPI(ctx context.Context, apiKey, referer, prompt string) 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("HTTP-Referer", referer)
 
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.httpClient.Do(req) //nolint:gosec // G704: intentionally calling known API endpoint
 	if err != nil {
 		return nil, fmt.Errorf("API request failed: %w", err)
 	}
