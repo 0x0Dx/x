@@ -50,6 +50,8 @@ export MOCHII_HOME=$HOME/.mochii
 | `mochii run HASH [ARGS]` | Run package |
 | `mochii regfile FILE` | Register file by hash |
 | `mochii regurl HASH URL` | Register URL for hash |
+| `mochii regderivation FILE` | Register derivation expression |
+| `mochii eval FILE` | Evaluate expression file |
 | `mochii fetch URL` | Fetch URL and print hash |
 | `mochii profile` | List profile generations |
 | `mochii switch HASH PATH` | Switch to package in profile |
@@ -246,12 +248,39 @@ Mochii supports derivation expressions that describe how to build packages:
 
 - **Str("...")** - String literal
 - **True / False** - Boolean values
+- **Lam("x", e)** - Lambda abstraction (variable binding)
+- **Var("x")** - Variable reference
+- **(e1 e2)** - Function application
 - **Hash(...)** - Reference to a value by hash
 - **External(...)** - Reference to non-expression value
 - **Deref(...)** - Dereference an expression
-- **(lambda x . e)** - Lambda abstraction
-- **(e1 e2)** - Function application
 - **(exec platform prog [args])** - Execution primitive
+
+### Expression Examples
+
+```json
+// Simple string
+"Hello World"
+
+// Boolean
+true
+false
+
+// Lambda application
+{"_type": "App", "func": {"_type": "Lam", "var": "x", "body": {"_type": "Var", "name": "x"}}, "arg": "Hello World"}
+
+// Nested application  
+{"_type": "App", "func": {"_type": "App", "func": {"_type": "Lam", "var": "x", "body": {"_type": "Lam", "var": "y", "body": {"_type": "Var", "name": "x"}}}, "arg": "Hello World"}, "arg": "Hallo Wereld"}
+
+// Derivation expression
+{
+  "name": "hello",
+  "buildPlatform": "x86_64-linux", 
+  "builder": "/bin/bash",
+  "args": ["-c", "echo hello"],
+  "env": {}
+}
+```
 
 ### Evaluating Expressions
 

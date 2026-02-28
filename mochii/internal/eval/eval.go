@@ -47,6 +47,10 @@ type ExprLam struct {
 	Body Expr
 }
 
+type ExprVar struct {
+	Name string
+}
+
 type ExprExec struct {
 	Platform Expr
 	Prog     Expr
@@ -403,6 +407,8 @@ func PrintExpr(e Expr) string {
 		return fmt.Sprintf("(%s %s)", PrintExpr(x.Func), PrintExpr(x.Arg))
 	case ExprLam:
 		return fmt.Sprintf("(lambda %s . %s)", x.Var, PrintExpr(x.Body))
+	case ExprVar:
+		return fmt.Sprintf("Var(%s)", x.Name)
 	case ExprExec:
 		args := make([]string, len(x.Args))
 		for i, a := range x.Args {
