@@ -99,6 +99,19 @@ runs:
       with:
         fetch-depth: 0
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        tags: goreviewer:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
     - name: Get PR number
       id: get_pr
       shell: bash
@@ -122,14 +135,12 @@ runs:
         PR_NUMBER="${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL="${{ github.repository }}"
         
-        # Get base and head refs
         BASE_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json baseRefName -q .baseRefName)
         HEAD_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json headRefName -q .headRefName)
         
         git fetch origin $BASE_REF $HEAD_REF
         git diff origin/$BASE_REF..origin/$HEAD_REF --no-color > diff.txt
         
-        # Check if diff is empty
         if [ ! -s diff.txt ]; then
           echo "DIFF_EMPTY=true" >> $GITHUB_OUTPUT
         else
@@ -146,37 +157,21 @@ runs:
         REPO_FULL_NAME: ${{ github.repository }}
         DEBUG: ${{ inputs.debug }}
       run: |
-        cd goreviewer
-        go build -o goreviewer .
-        
-        # Check if this is a /goreviewer command
-        COMMENT_BODY="${{ steps.get_pr.outputs.COMMENT_BODY }}"
-        if echo "$COMMENT_BODY" | grep -qi "^/goreviewer"; then
-          # Extract question (remove /goreviewer command)
-          QUESTION=$(echo "$COMMENT_BODY" | sed -e 's/^\/goreviewer//gi' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-          echo "Question: $QUESTION"
-          
-          # Run review with diff and post as comment
-          RESPONSE=$(cat ../diff.txt | ./goreviewer review \
-            --pr "$PR_NUMBER" \
-            --repo "$REPO_FULL_NAME" \
-            --light-model "${{ inputs.openai_light_model }}" \
-            --heavy-model "${{ inputs.openai_heavy_model }}" \
-            --language "${{ inputs.language }}" \
-            --openai-base-url "${{ inputs.openai_base_url }}" \
-            2>/dev/null | jq -r '.review' || echo "Failed to get response")
-          
-          # Post response as comment
-          gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" --body "$RESPONSE"
-        else
-          # Normal review
-          ./goreviewer run \
-            --pr "$PR_NUMBER" \
-            --repo "$REPO_FULL_NAME" \
-            --light-model "${{ inputs.openai_light_model }}" \
-            --heavy-model "${{ inputs.openai_heavy_model }}" \
-            --system-message '${{ inputs.system_message }}' \
-            --language "${{ inputs.language }}" \
-            --openai-base-url "${{ inputs.openai_base_url }}" \
-            --bot-icon '${{ inputs.bot_icon }}' < ../diff.txt
-        fi
+        docker run --rm \
+          -e GITHUB_TOKEN \
+          -e OPENAI_API_KEY \
+          -e PR_NUMBER \
+          -e REPO_FULL_NAME \
+          -e DEBUG \
+          -v ${{ github.workspace }}:/workspace \
+          --network host \
+          goreviewer:latest \
+          /bin/sh -c 'cd /workspace && ./goreviewer run \
+            --pr $PR_NUMBER \
+            --repo $REPO_FULL_NAME \
+            --light-model ${{ inputs.openai_light_model }} \
+            --heavy-model ${{ inputs.openai_heavy_model }} \
+            --system-message "${{ inputs.system_message }}" \
+            --language ${{ inputs.language }} \
+            --openai-base-url ${{ inputs.openai_base_url }} \
+            --bot-icon "${{ inputs.bot_icon }}" < diff.txt'
