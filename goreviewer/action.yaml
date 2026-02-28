@@ -1,4 +1,9 @@
 name: GoReviewer
+description: "AI-powered code reviewer using OpenAI API"
+branding:
+  icon: "git-merge"
+  color: "purple"
+author: "0x0Dx"
 
 runs:
   using: composite
