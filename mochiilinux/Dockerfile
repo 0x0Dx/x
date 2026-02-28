@@ -547,3 +547,753 @@ RUN mkdir -p /sources && cd /sources && \
   make DESTDIR=/attr && \
   make DESTDIR=/attr install && \
   make install
+
+# ACL
+FROM attr AS acl
+
+ENV ACL_VERSION=2.3.2
+
+COPY --from=sources-downloader /sources/downloads/acl-${ACL_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf acl-${ACL_VERSION}.tar.gz && \
+  mv acl-${ACL_VERSION} acl && \
+  cd acl && mkdir -p /acl && \
+  ./configure ${COMMON_ARGS} \
+    --prefix=/usr \
+    --disable-dependency-tracking \
+    --libexecdir=/usr/libexec && \
+  make DESTDIR=/acl && \
+  make DESTDIR=/acl install && \
+  make install
+
+# Popt
+FROM acl AS popt
+
+ENV POPT_VERSION=1.19
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz && \
+  tar -xvf popt-${POPT_VERSION}.tar.gz && \
+  mv popt-${POPT_VERSION} popt && \
+  cd popt && mkdir -p /popt && \
+  ./configure ${COMMON_ARGS} \
+    --disable-dependency-tracking \
+    --prefix=/usr && \
+  make DESTDIR=/popt && \
+  make DESTDIR=/popt install && \
+  make install
+
+# Zlib
+FROM popt AS zlib
+
+ENV ZLIB_VERSION=1.3.1
+
+COPY --from=sources-downloader /sources/downloads/zlib-${ZLIB_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf zlib-${ZLIB_VERSION}.tar.gz && \
+  mv zlib-${ZLIB_VERSION} zlib && \
+  cd zlib && mkdir -p /zlib && \
+  ./configure --prefix=/usr --shared && \
+  make DESTDIR=/zlib && \
+  make DESTDIR=/zlib install && \
+  make install
+
+# Gawk
+FROM zlib AS gawk
+
+ENV GAWK_VERSION=5.3.2
+
+COPY --from=sources-downloader /sources/downloads/gawk-${GAWK_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf gawk-${GAWK_VERSION}.tar.xz && \
+  mv gawk-${GAWK_VERSION} gawk && \
+  cd gawk && mkdir -p /gawk && \
+  ./configure ${COMMON_ARGS} \
+    --disable-dependency-tracking \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --disable-pma && \
+  make DESTDIR=/gawk && \
+  make DESTDIR=/gawk install && \
+  make install
+
+# Rsync
+FROM gawk AS rsync
+
+ENV RSYNC_VERSION=3.4.1
+
+COPY --from=sources-downloader /sources/downloads/rsync-${RSYNC_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf rsync-${RSYNC_VERSION}.tar.gz && \
+  mv rsync-${RSYNC_VERSION} rsync && \
+  cd rsync && mkdir -p /rsync && \
+  ./configure ${COMMON_ARGS} \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --localstatedir=/var \
+    --enable-acl-support \
+    --enable-xattr-support \
+    --disable-roll-simd \
+    --enable-xxhash \
+    --with-rrsync \
+    --without-included-popt \
+    --without-included-zlib \
+    --disable-md2man \
+    --disable-openssl && \
+  make DESTDIR=/rsync && \
+  make DESTDIR=/rsync install && \
+  make install
+
+# Binutils
+FROM stage1 AS binutils
+
+ENV BINUTILS_VERSION=2.44
+
+RUN mkdir /sources && cd /sources && \
+  wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
+  tar -xvf binutils-${BINUTILS_VERSION}.tar.xz && \
+  mv binutils-${BINUTILS_VERSION} binutils && \
+  cd binutils && mkdir -p /binutils && \
+  ./configure ${COMMON_ARGS} && \
+  make DESTDIR=/binutils && \
+  make DESTDIR=/binutils install && \
+  make install
+
+# Ncurses
+FROM stage1 AS ncurses
+
+ENV NCURSES_VERSION=6.5
+
+RUN mkdir /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
+  tar -xvf ncurses-${NCURSES_VERSION}.tar.gz && \
+  mv ncurses-${NCURSES_VERSION} ncurses && \
+  cd ncurses && mkdir -p /ncurses && \
+  sed -i s/mawk// configure && \
+  mkdir build && cd build && \
+  ../configure ${COMMON_ARGS} && \
+  make -C include && make -C progs tic && cd .. && \
+  ./configure ${COMMON_ARGS} \
+    --mandir=/usr/share/man \
+    --with-manpage-format=normal \
+    --with-shared \
+    --without-debug \
+    --without-ada \
+    --without-normal \
+    --disable-stripping \
+    --enable-widec && \
+  make -j${JOBS} && \
+  make DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && \
+  make install && \
+  echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
+  cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
+
+# M4
+FROM stage1 AS m4
+
+ENV M4_VERSION=1.4.20
+
+RUN mkdir /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/m4/m4-${M4_VERSION}.tar.xz && \
+  tar -xvf m4-${M4_VERSION}.tar.xz && \
+  mv m4-${M4_VERSION} m4 && \
+  cd m4 && mkdir -p /m4 && \
+  ./configure ${COMMON_ARGS} --disable-dependency-tracking && \
+  make DESTDIR=/m4 && \
+  make DESTDIR=/m4 install && \
+  make install
+
+# Readline
+FROM stage1 AS readline
+
+ENV READLINE_VERSION=8.3
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
+  tar -xvf readline-${READLINE_VERSION}.tar.gz && \
+  mv readline-${READLINE_VERSION} readline && \
+  cd readline && mkdir -p /readline && \
+  ./configure ${COMMON_ARGS} --disable-dependency-tracking && \
+  make DESTDIR=/readline && \
+  make DESTDIR=/readline install && \
+  make install
+
+# Bash
+FROM readline AS bash
+
+ENV BASH_VERSION=5.3
+
+COPY ./files/bash/bashrc /sources/bashrc
+COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+  tar -xvf bash-${BASH_VERSION}.tar.gz && \
+  mv bash-${BASH_VERSION} bash && \
+  cd bash && mkdir -p /bash && \
+  ./configure ${COMMON_ARGS} \
+    --build=${BUILD} \
+    --host=${TARGET} \
+    --prefix=/usr \
+    --bindir=/bin \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --enable-readline \
+    --without-bash-malloc \
+    --with-installed-readline && \
+  make y.tab.c && make builtins/libbuiltins.a && make && \
+  mkdir -p /bash/etc/bash && \
+  install -Dm644 /sources/bashrc /bash/etc/bash/bashrc && \
+  install -Dm644 /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh && \
+  make DESTDIR=/bash install && \
+  make install
+
+# Perl
+FROM m4 AS perl
+
+ENV PERL_VERSION=5.42.0
+
+ENV CFLAGS="-static -Os -ffunction-sections -fdata-sections -Bsymbolic-functions"
+ENV LDFLAGS="-Wl,--gc-sections"
+ENV PERL_CROSS=1.6.2
+
+RUN cd /sources && \
+  wget http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz && \
+  tar -xvf perl-${PERL_VERSION}.tar.xz && \
+  mv perl-${PERL_VERSION} perl && \
+  cd perl && \
+  ln -s /usr/bin/gcc /usr/bin/cc && \
+  ./Configure -des \
+    -Dprefix=/usr \
+    -Dcccdlflags='-fPIC' \
+    -Dccdlflags='-rdynamic' \
+    -Dprivlib=/usr/share/perl5/core_perl \
+    -Darchlib=/usr/lib/perl5/core_perl \
+    -Dvendorprefix=/usr \
+    -Dvendorlib=/usr/share/perl5/vendor_perl \
+    -Dvendorarch=/usr/lib/perl5/vendor_perl \
+    -Dsiteprefix=/usr/local \
+    -Dsitelib=/usr/local/share/perl5/site_perl \
+    -Dsitearch=/usr/local/lib/perl5/site_perl \
+    -Dlocincpth=' ' \
+    -Doptimize="-flto=auto -O2" \
+    -Duselargefiles \
+    -Dusethreads \
+    -Duseshrplib \
+    -Dd_semctl_semun \
+    -Dman1dir=/usr/share/man/man1 \
+    -Dman3dir=/usr/share/man/man3 \
+    -Dinstallman1dir=/usr/share/man/man1 \
+    -Dinstallman3dir=/usr/share/man/man3 \
+    -Dman1ext='1' \
+    -Dman3ext='3pm' \
+    -Dcf_by='mochiilinux' \
+    -Dcf_email='mochiilinux@example.com' \
+    -Ud_csh \
+    -Ud_fpos64_t \
+    -Ud_off64_t \
+    -Dusenm \
+    -Duse64bitint && \
+  make libperl.so && \
+  make DESTDIR=/perl -j8 && \
+  make DESTDIR=/perl install && \
+  make install
+
+# OpenSSL
+FROM rsync AS openssl
+
+ENV OPENSSL_VERSION=3.5.2
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks /perl/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks /zlib/. /
+
+COPY --from=sources-downloader /sources/downloads/openssl-${OPENSSL_VERSION}.tar.gz /sources/
+
+RUN cd /sources && \
+  tar -xvf openssl-${OPENSSL_VERSION}.tar.gz && \
+  mv openssl-${OPENSSL_VERSION} openssl && \
+  cd openssl && mkdir -p /openssl && \
+  ./config --prefix=/usr \
+    --openssldir=/etc/ssl \
+    --libdir=lib \
+    shared \
+    zlib-dynamic 2>&1 && \
+  make DESTDIR=/openssl 2>&1 && \
+  make DESTDIR=/openssl install && \
+  make install
+
+# Busybox
+FROM openssl AS busybox
+
+COPY --from=busybox-stage0 /sources /sources
+
+ENV BUSYBOX_VERSION=1.37.0
+
+RUN cd /sources && \
+  rm -rfv busybox-${BUSYBOX_VERSION} && \
+  tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
+  cd busybox-${BUSYBOX_VERSION} && \
+  make -j1 distclean && \
+  make defconfig && \
+  sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
+  sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
+  sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
+  sed -i 's/\(CONFIG_FEATURE_UTMP\)=y/# \1 is not set/' .config && \
+  sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
+  sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
+  sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config
+
+RUN cd /sources/busybox-${BUSYBOX_VERSION} && \
+  make -j1 && \
+  make CONFIG_PREFIX="/sysroot" install && \
+  make install
+
+# Coreutils
+FROM rsync AS coreutils
+
+ENV COREUTILS_VERSION=9.4
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+  tar -xvf coreutils-${COREUTILS_VERSION}.tar.xz && \
+  mv coreutils-${COREUTILS_VERSION} coreutils && \
+  cd coreutils && mkdir -p /coreutils && \
+  ./configure ${COMMON_ARGS} \
+    --prefix=/usr \
+    --bindir=/bin \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --enable-no-install-program=hostname,su,kill,uptime \
+    --enable-single-binary=symlinks \
+    --enable-single-binary-exceptions=env,fmt,sha512sum \
+    --with-openssl \
+    --disable-dependency-tracking && \
+  make DESTDIR=/coreutils && \
+  make DESTDIR=/coreutils install
+
+# Findutils
+FROM stage1 AS findutils
+
+ENV FINDUTILS_VERSION=4.10.0
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
+  tar -xvf findutils-${FINDUTILS_VERSION}.tar.xz && \
+  mv findutils-${FINDUTILS_VERSION} findutils && \
+  cd findutils && mkdir -p /findutils && \
+  ./configure ${COMMON_ARGS} --disable-dependency-tracking && \
+  make DESTDIR=/findutils && \
+  make DESTDIR=/findutils install && \
+  make install
+
+# Grep
+FROM stage1 AS grep
+
+ENV GREP_VERSION=3.12
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
+  tar -xvf grep-${GREP_VERSION}.tar.xz && \
+  mv grep-${GREP_VERSION} grep && \
+  cd grep && mkdir -p /grep && \
+  ./configure ${COMMON_ARGS} --disable-dependency-tracking && \
+  make DESTDIR=/grep && \
+  make DESTDIR=/grep install && \
+  make install
+
+
+# CA Certificates
+FROM rsync AS ca-certificates
+
+ENV CA_CERTIFICATES_VERSION=20250619
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks /perl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks /bash/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks /readline/. /
+
+COPY --from=acl /acl /acl
+RUN rsync -aHAX --keep-dirlinks /acl/. /
+
+COPY --from=attr /attr /attr
+RUN rsync -aHAX --keep-dirlinks /attr/. /
+
+COPY --from=findutils /findutils /findutils
+RUN rsync -aHAX --keep-dirlinks /findutils/. /
+
+COPY --from=sources-downloader /sources/downloads/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 && \
+  mv ca-certificates-${CA_CERTIFICATES_VERSION} ca-certificates && \
+  cd ca-certificates && mkdir -p /ca-certificates && \
+  CC=gcc make && \
+  make DESTDIR=/ca-certificates install
+
+COPY ./files/ca-certificates/post_install.sh /sources/post_install.sh
+RUN bash /sources/post_install.sh
+
+
+# SQLite3
+FROM rsync AS sqlite3
+
+ENV SQLITE3_VERSION=3500400
+
+ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY -DSQLITE_ENABLE_RTREE -DSQLITE_ENABLE_GEOPOLY -DSQLITE_USE_URI -DSQLITE_ENABLE_DBSTAT_VTAB -DSQLITE_SOUNDEX -DSQLITE_MAX_VARIABLE_NUMBER=250000"
+
+COPY --from=sources-downloader /sources/downloads/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf sqlite-autoconf-${SQLITE3_VERSION}.tar.gz && \
+  mv sqlite-autoconf-${SQLITE3_VERSION} sqlite3 && \
+  cd sqlite3 && mkdir -p /sqlite3 && \
+  ./configure \
+    --prefix=/usr \
+    --enable-threadsafe \
+    --enable-session \
+    --enable-static \
+    --enable-fts3 \
+    --enable-fts4 \
+    --enable-fts5 \
+    --soname=legacy && \
+  make && \
+  make DESTDIR=/sqlite3 install && \
+  make install
+
+
+# Util-linux
+FROM bash AS util-linux
+
+ENV UTIL_LINUX_VERSION=2.41.1
+
+COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && \
+  mkdir -p /sources && cd /sources && \
+  tar -xvf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+  mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
+  cd util-linux && mkdir -p /util-linux && \
+  ./configure ${COMMON_ARGS} \
+    --disable-dependency-tracking \
+    --prefix=/usr \
+    --libdir=/usr/lib \
+    --disable-silent-rules \
+    --enable-newgrp \
+    --disable-uuidd \
+    --disable-liblastlog2 \
+    --disable-nls \
+    --disable-kill \
+    --disable-chfn-chsh \
+    --with-vendordir=/usr/lib \
+    --enable-fs-paths-extra=/usr/sbin && \
+  make DESTDIR=/util-linux && \
+  make DESTDIR=/util-linux install && \
+  make install
+
+
+# Curl
+FROM rsync AS curl
+
+COPY --from=ca-certificates /ca-certificates /ca-certificates
+RUN rsync -aHAX --keep-dirlinks /ca-certificates/. /
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /
+
+COPY --from=zstd /zstd /zstd
+RUN rsync -aHAX --keep-dirlinks /zstd/. /
+
+ENV CURL_VERSION=8.5.0
+
+COPY --from=sources-downloader /sources/downloads/curl-${CURL_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf curl-${CURL_VERSION}.tar.gz && \
+  mv curl-${CURL_VERSION} curl && \
+  cd curl && mkdir -p /curl && \
+  ./configure ${COMMON_ARGS} \
+    --disable-dependency-tracking \
+    --enable-ipv6 \
+    --enable-unix-sockets \
+    --enable-static \
+    --without-libidn \
+    --without-libidn2 \
+    --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+    --with-ca-path=/etc/ssl/certs \
+    --with-zsh-functions-dir \
+    --with-fish-functions-dir \
+    --disable-ldap \
+    --with-pic \
+    --enable-websockets \
+    --without-libssh2 \
+    --with-ssl \
+    --with-nghttp2 \
+    --without-libssh2 && \
+  make DESTDIR=/curl && \
+  make DESTDIR=/curl install && \
+  make install
+
+
+# Python
+FROM rsync AS python
+
+ENV PYTHON_VERSION=3.12.11
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks /bash/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks /zlib/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks /readline/. /
+
+COPY --from=sources-downloader /sources/downloads/Python-${PYTHON_VERSION}.tar.xz /sources/
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && \
+  mkdir -p /sources && cd /sources && \
+  tar -xvf Python-${PYTHON_VERSION}.tar.xz && \
+  mv Python-${PYTHON_VERSION} python && \
+  cd python && mkdir -p /python && \
+  ./configure --disable-dependency-tracking --prefix=/usr \
+    --enable-ipv6 \
+    --enable-loadable-sqlite-extensions \
+    --enable-optimizations \
+    --enable-shared \
+    --with-ensurepip=install \
+    --with-lto \
+    --with-computed-gotos \
+    --with-dbmliborder=gdbm:ndbm 2>&1 && \
+  make DESTDIR=/python 2>&1 && \
+  make DESTDIR=/python install 2>&1 && \
+  make install 2>&1
+
+
+# Libcap
+FROM bash AS libcap
+
+ENV LIBCAP_VERSION=2.76
+
+COPY --from=sources-downloader /sources/downloads/libcap-${LIBCAP_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf libcap-${LIBCAP_VERSION}.tar.xz && \
+  mv libcap-${LIBCAP_VERSION} libcap && \
+  cd libcap && mkdir -p /libcap && \
+  make BUILD_CC=gcc CC="${CC:-gcc}" && \
+  make DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && \
+  make GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
+
+
+# Gperf
+FROM stage1 AS gperf
+
+ENV GPERF_VERSION=3.3
+
+RUN mkdir -p /sources && cd /sources && \
+  wget http://ftp.gnu.org/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
+  tar -xvf gperf-${GPERF_VERSION}.tar.gz && \
+  mv gperf-${GPERF_VERSION} gperf && \
+  cd gperf && mkdir -p /gperf && \
+  ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && \
+  make BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
+  make DESTDIR=/gperf install && \
+  make install
+
+
+# Systemd
+FROM rsync AS systemd
+
+ENV SYSTEMD_VERSION=257.6
+
+COPY --from=gperf /gperf /gperf
+RUN rsync -aHAX --keep-dirlinks /gperf/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks /libcap/. /
+
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks /util-linux/. /
+
+COPY --from=python /python /python
+RUN rsync -aHAX --keep-dirlinks /python/. /
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks /bash/. /
+
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks /coreutils/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks /readline/. /
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+
+COPY --from=sources-downloader /sources/downloads/systemd /sources/downloads/systemd
+
+ENV CFLAGS="-D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
+
+RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && \
+  mkdir -p /sources && cd /sources/downloads/systemd && \
+  mkdir -p /systemd && \
+  python3 -m pip install meson ninja jinja2 && \
+  mkdir -p build && cd build && \
+  /usr/bin/meson setup .. \
+    --prefix=/usr \
+    --buildtype=release \
+    -D default-dnssec=no \
+    -D firstboot=false \
+    -D install-tests=false \
+    -D ldconfig=false \
+    -D sysusers=false \
+    -D rpmmacrosdir=no \
+    -D gshadow=false \
+    -D idn=false \
+    -D localed=false \
+    -D nss-myhostname=false \
+    -D nss-systemd=false \
+    -D userdb=false \
+    -D nss-mymachines=disabled \
+    -D nss-resolve=disabled \
+    -D utmp=false \
+    -D homed=disabled \
+    -D man=disabled \
+    -D mode=release \
+    -D pamconfdir=no \
+    -D dev-kvm-mode=0660 \
+    -D nobody-group=nogroup \
+    -D sysupdate=disabled \
+    -D ukify=disabled \
+    -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION} 2>&1 && \
+  ninja 2>&1 && \
+  DESTDIR=/systemd ninja install && \
+  ninja install
+
+
+# =============================================================================
+# Stage 2: Final Image Build
+# =============================================================================
+# Assembles all built packages into the final root filesystem image.
+
+FROM stage0 AS stage2-merge
+
+RUN apk add rsync
+
+COPY --from=skeleton /sysroot /skeleton
+
+# Musl
+COPY --from=musl /sysroot /musl
+RUN rsync -aHAX --keep-dirlinks /musl/. /skeleton/
+
+# Coreutils
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks /coreutils/. /skeleton/
+
+# Curl
+COPY --from=curl /curl /curl
+RUN rsync -aHAX --keep-dirlinks /curl/. /skeleton/
+
+# OpenSSL
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /skeleton/
+
+# CA Certificates
+COPY --from=ca-certificates /ca-certificates /ca-certificates
+RUN rsync -aHAX --keep-dirlinks /ca-certificates/. /skeleton/
+
+# Bash
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks /bash/. /skeleton/
+
+# Readline
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks /readline/. /skeleton/
+
+# ACL
+COPY --from=acl /acl /acl
+RUN rsync -aHAX --keep-dirlinks /acl/. /skeleton/
+
+# Attr
+COPY --from=attr /attr /attr
+RUN rsync -aHAX --keep-dirlinks /attr/. /skeleton/
+
+# Findutils
+COPY --from=findutils /findutils /findutils
+RUN rsync -aHAX --keep-dirlinks /findutils/. /skeleton/
+
+# Grep
+COPY --from=grep /grep /grep
+RUN rsync -aHAX --keep-dirlinks /grep/. /skeleton/
+
+# Zstd
+COPY --from=zstd /zstd /zstd
+RUN rsync -aHAX --keep-dirlinks /zstd/. /skeleton/
+
+# Zlib
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks /zlib/. /skeleton/
+
+# Libcap
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks /libcap/. /skeleton/
+
+# Util-linux
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks /util-linux/. /skeleton/
+
+# Systemd
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks /systemd/. /skeleton/
+
+# Cleanup - remove headers
+RUN rm -rf /skeleton/usr/include
+
+
+# =============================================================================
+# Final Image: The complete mochiilinux distribution
+# =============================================================================
+FROM scratch AS stage2
+
+COPY --from=stage2-merge /skeleton /
+
+
+# =============================================================================
+# Test Stage 2: Verify the final image works
+# =============================================================================
+FROM stage2 AS test2
+
+SHELL ["/bin/bash", "-c"]
+
+RUN ls -liah /
+RUN curl --version
