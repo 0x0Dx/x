@@ -70,6 +70,10 @@ runs:
       uses: actions/checkout@v5
       with:
         fetch-depth: 0
+    - uses: actions/setup-go@v6.3.0
+      with:
+        go-version: '1.25.7'
+        cache: true
 
     - name: Get PR number
       id: get_pr
