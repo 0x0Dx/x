@@ -54,7 +54,7 @@ var reviewCmd = &cobra.Command{
 			DisableReview: disableReview,
 		}
 
-		ghClient := getGitHubClientForPR()
+		ghClient := getGitHubClientForPR(ghToken, prNumber, repoFullName)
 
 		r := reviewer.New(cfg, ghClient)
 		result, err := r.Review(context.Background(), string(diffContent))
@@ -138,7 +138,7 @@ func splitRepo(s string) []string {
 	return strings.SplitN(s, "/", 2)
 }
 
-func getGitHubClientForPR() *github.Client {
+func getGitHubClientForPR(ghToken string, prNumber int, repoFullName string) *github.Client {
 	if ghToken == "" && github.GetEnvToken() == "" {
 		return nil
 	}
@@ -227,7 +227,7 @@ var commentCmd = &cobra.Command{
 			OpenAIBaseURL: openAIBaseURL,
 		}
 
-		ghClient := getGitHubClientForPR()
+		ghClient := getGitHubClientForPR(ghToken, prNumber, repoFullName)
 
 		r := reviewer.New(cfg, ghClient)
 
