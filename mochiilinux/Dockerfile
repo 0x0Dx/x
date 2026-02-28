@@ -235,7 +235,7 @@ ENV BINUTILS_VERSION=2.44
 RUN mkdir /sources && cd /sources && \
   wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
 
-RUN cd /sources && tar -xvf binutils-${BINUTILS_VERSION}.tar.gz && \
+RUN cd /sources && tar -xvf binutils-${BINUTILS_VERSION}.tar.xz && \
   cd binutils-${BINUTILS_VERSION} && \
   ./configure \
     --prefix=/usr \
