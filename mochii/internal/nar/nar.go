@@ -217,6 +217,10 @@ func (nr *Reader) Extract(dest string) error {
 		if cleanName == "." {
 			continue
 		}
+		// Reject absolute or parent-directory entries to prevent path traversal.
+		if filepath.IsAbs(cleanName) || strings.Contains(cleanName, "..") {
+			return fmt.Errorf("archive entry %q has unsafe path %q", header.Name, cleanName)
+		}
 
 		targetPath := filepath.Join(absDest, cleanName)
 		absTarget, err := filepath.Abs(targetPath)
@@ -260,7 +264,28 @@ func (nr *Reader) Extract(dest string) error {
 			if err := os.MkdirAll(filepath.Dir(absTarget), 0755); err != nil {
 				return fmt.Errorf("mkdir for symlink: %w", err)
 			}
-			if err := os.Symlink(header.Linkname, absTarget); err != nil {
+			// Ensure symlink target is constrained within the destination directory.
+			linkTargetClean := filepath.Clean(header.Linkname)
+			if filepath.IsAbs(linkTargetClean) || strings.Contains(linkTargetClean, "..") {
+				return fmt.Errorf("archive entry %q has unsafe symlink target %q", header.Name, header.Linkname)
+			}
+			linkTargetPath := filepath.Join(absDest, linkTargetClean)
+			linkTargetAbs, err := filepath.Abs(linkTargetPath)
+			if err != nil {
+				return fmt.Errorf("invalid symlink target for %q: %w", header.Name, err)
+			}
+			linkCheck := linkTargetAbs
+			if !strings.HasSuffix(linkCheck, string(os.PathSeparator)) && strings.HasSuffix(linkTargetClean, string(os.PathSeparator)) {
+				linkCheck += string(os.PathSeparator)
+			}
+			prefix := absDest
+			if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+				prefix += string(os.PathSeparator)
+			}
+			if linkTargetAbs != absDest && !strings.HasPrefix(linkCheck, prefix) {
+				return fmt.Errorf("symlink %q would point outside destination", header.Name)
+			}
+			if err := os.Symlink(linkTargetAbs, absTarget); err != nil {
 				return fmt.Errorf("create symlink: %w", err)
 			}
 		}
