@@ -9,7 +9,7 @@
 #   stage0        - Base image with cross-compiler toolchain
 #   sources       - Download all source tarballs
 #   skeleton      - Base root filesystem
-#   stage0-*     - Cross-compiled packages (busybox, musl, gcc, make, binutils)
+#   stage0-*     - Cross-compiled packages (busybox, glibc, gcc, make, binutils)
 #   stage1-merge - Merge stage0 packages into single rootfs
 #   stage1       - Minimal image with build tools
 #   stage1-*     - Native packages for final image
@@ -34,8 +34,8 @@ ENV VENDOR=${VENDOR}
 ENV ARCH=${ARCH}
 ENV BUILD_ARCH=${BUILD_ARCH}
 ENV JOBS=${JOBS}
-ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
-ENV BUILD=${BUILD_ARCH}-pc-linux-musl
+ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-gnu
+ENV BUILD=${BUILD_ARCH}-pc-linux-gnu
 ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
 ENV LC_ALL=POSIX
 
@@ -155,15 +155,22 @@ RUN cd busybox-${BUSYBOX_VERSION} && \
   make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/sysroot" install
 
 
-FROM stage0 AS musl-stage0
+FROM stage0 AS glibc-stage0
 
-ENV MUSL_VERSION=1.2.5
+ENV GLIBC_VERSION=2.40
+ENV GLIBC_URL=https://ftp.gnu.org/gnu/glibc
 
-RUN wget -q https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
-  tar -xzf musl-${MUSL_VERSION}.tar.gz
+RUN wget -q ${GLIBC_URL}/glibc-${GLIBC_VERSION}.tar.xz && \
+  tar -xf glibc-${GLIBC_VERSION}.tar.xz
 
-RUN cd musl-${MUSL_VERSION} && \
-  ./configure CROSS_COMPILE=${TARGET}- --prefix=/usr --disable-static --target=${TARGET} && \
+RUN cd glibc-${GLIBC_VERSION} && \
+  mkdir build && cd build && \
+  ../configure \
+    --prefix=/usr \
+    --build=${BUILD} \
+    --host=${TARGET} \
+    --with-headers=/sysroot/usr/include \
+    --disable-nscd && \
   make -j${JOBS} && \
   DESTDIR=/sysroot make -j${JOBS} install
 
@@ -254,13 +261,13 @@ RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 COPY --from=gcc-stage0 /sysroot /gcc
-COPY --from=musl-stage0 /sysroot /musl
+COPY --from=glibc-stage0 /sysroot /glibc
 COPY --from=busybox-stage0 /sysroot /busybox
 COPY --from=make-stage0 /sysroot /make
 COPY --from=binutils-stage0 /sysroot /binutils
 
 RUN rsync -aHAX --keep-dirlinks /gcc/. /skeleton && \
-  rsync -aHAX --keep-dirlinks /musl/. /skeleton && \
+  rsync -aHAX --keep-dirlinks /glibc/. /skeleton && \
   rsync -aHAX --keep-dirlinks /busybox/. /skeleton && \
   rsync -aHAX --keep-dirlinks /make/. /skeleton && \
   rsync -aHAX --keep-dirlinks /binutils/. /skeleton
@@ -305,15 +312,17 @@ RUN gcc --version && make --version && \
 # =============================================================================
 # Stage 1.x: Native packages
 # =============================================================================
-FROM stage1 AS musl
+FROM stage1 AS glibc
 
-ENV MUSL_VERSION=1.2.5
+ENV GLIBC_VERSION=2.40
+ENV GLIBC_URL=https://ftp.gnu.org/gnu/glibc
 
-RUN wget -q https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
-  tar -xzf musl-${MUSL_VERSION}.tar.gz
+RUN wget -q ${GLIBC_URL}/glibc-${GLIBC_VERSION}.tar.xz && \
+  tar -xf glibc-${GLIBC_VERSION}.tar.xz
 
-RUN cd musl-${MUSL_VERSION} && \
-  ./configure --prefix=/usr --disable-static && \
+RUN cd glibc-${GLIBC_VERSION} && \
+  mkdir build && cd build && \
+  ../configure --prefix=/usr --disable-nscd && \
   make -j${JOBS} && \
   DESTDIR=/sysroot make -j${JOBS} install
 
@@ -981,7 +990,7 @@ RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 
-COPY --from=musl /sysroot /musl
+COPY --from=glibc /sysroot /glibc
 COPY --from=coreutils /coreutils /coreutils
 COPY --from=curl /curl /curl
 COPY --from=openssl /openssl /openssl
@@ -998,7 +1007,7 @@ COPY --from=libcap /libcap /libcap
 COPY --from=util-linux /util-linux /util-linux
 COPY --from=systemd /systemd /systemd
 
-RUN rsync -aHAX --keep-dirlinks /musl/. /skeleton && \
+RUN rsync -aHAX --keep-dirlinks /glibc/. /skeleton && \
   rsync -aHAX --keep-dirlinks /coreutils/. /skeleton && \
   rsync -aHAX --keep-dirlinks /curl/. /skeleton && \
   rsync -aHAX --keep-dirlinks /openssl/. /skeleton && \
