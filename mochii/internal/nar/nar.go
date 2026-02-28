@@ -10,7 +10,40 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"strings"
 )
+// isSafePath checks that a candidate path, interpreted under dest,
+// does not escape the dest directory, taking existing symlinks into
+// account by using EvalSymlinks.
+func isSafePath(dest, candidate string) bool {
+	if filepath.IsAbs(candidate) {
+		return false
+	}
+
+	// Construct the path under dest.
+	joined := filepath.Join(dest, candidate)
+
+	// Resolve symlinks in the path. If the path (or any part of it)
+	// does not exist yet, EvalSymlinks will fail; in that case we
+	// fall back to using the cleaned joined path for the safety check.
+	realpath, err := filepath.EvalSymlinks(joined)
+	if err != nil {
+		realpath = filepath.Clean(joined)
+	}
+
+	rel, err := filepath.Rel(dest, realpath)
+	if err != nil {
+		return false
+	}
+
+	rel = filepath.Clean(rel)
+	if rel == "." {
+		return true
+	}
+
+	return !filepath.IsAbs(rel) && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 
 // Hash computes the NAR hash of a directory.
 func Hash(path string) (string, error) {
@@ -183,6 +216,10 @@ func NewReader(r io.Reader) *Reader {
 	isUnderRoot := func(p string) (string, error) {
 		if filepath.IsAbs(p) {
 			return "", fmt.Errorf("absolute path not allowed: %s", p)
+		if !isSafePath(dest, header.Name) {
+			return fmt.Errorf("unsafe path in archive entry name: %q", header.Name)
+		}
+
 		}
 		joined := filepath.Join(root, p)
 		real, err := filepath.EvalSymlinks(joined)
@@ -205,12 +242,17 @@ func NewReader(r io.Reader) *Reader {
 func (nr *Reader) Extract(dest string) error {
 	// Ensure destination is an absolute, cleaned path.
 	absDest, err := filepath.Abs(filepath.Clean(dest))
+			if !isSafePath(dest, header.Linkname) {
+				return fmt.Errorf("unsafe symlink target in archive: %q", header.Linkname)
+			}
 	if err != nil {
 		return fmt.Errorf("invalid destination path: %w", err)
 	}
 
 	for {
-		header, err := nr.r.Next()
+			if err := os.Symlink(header.Linkname, path); err != nil {
+				return fmt.Errorf("create symlink: %w", err)
+			}
 		if err == io.EOF {
 			break
 		}
