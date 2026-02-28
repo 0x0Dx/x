@@ -18,30 +18,6 @@ inputs:
     required: false
     description: "Enable debug mode"
     default: "false"
-  max_files:
-    required: false
-    description: "Max files to summarize and review"
-    default: "150"
-  review_simple_changes:
-    required: false
-    description: "Review even when changes are simple"
-    default: "false"
-  review_comment_lgtm:
-    required: false
-    description: "Leave comments on LGTM reviews"
-    default: "false"
-  path_filters:
-    required: false
-    description: "Path filters for files to review"
-    default: ""
-  disable_review:
-    required: false
-    description: "Only provide summary"
-    default: "false"
-  disable_release_notes:
-    required: false
-    description: "Disable release notes"
-    default: "false"
   openai_base_url:
     required: false
     description: "OpenAI API base URL"
@@ -73,10 +49,6 @@ inputs:
   summarize:
     required: false
     description: "Summarize prompt"
-    default: ""
-  summarize_release_notes:
-    required: false
-    description: "Release notes prompt"
     default: ""
   language:
     required: false
