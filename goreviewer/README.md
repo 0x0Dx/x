@@ -53,18 +53,6 @@ goreviewer run [flags]
 | `--token` | - | GitHub token (or use GITHUB_TOKEN env) |
 | `-v, --verbose` | false | Enable debug output |
 
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes* | Get from [platform.openai.com](https://platform.openai.com/api-keys) |
-| `OPENROUTER_API_KEY` | Yes* | Get from [openrouter.ai](https://openrouter.ai) |
-| `GITHUB_TOKEN` | For posting | GitHub token for PR comments |
-| `PR_NUMBER` | For `run` command | PR number (auto-set in GitHub Actions) |
-| `REPO_FULL_NAME` | For `run` command | owner/repo (auto-set in GitHub Actions) |
-
-*At least one API key required. OPENROUTER_API_KEY takes priority if both set.
-
 ### Examples
 
 Basic review:
@@ -177,14 +165,6 @@ jobs:
 6. **Post** - Comments on PR with review + summary
 7. **Labels** - Adds suggested labels (security, bug, etc.)
 
-### Secrets
-
-| Secret | Where to get |
-|--------|--------------|
-| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
-| `OPENROUTER_API_KEY` | [openrouter.ai](https://openrouter.ai) |
-| `GITHUB_TOKEN` | Auto-provided by GitHub Actions |
-
 ### Example: Using OpenRouter
 
 ```yaml
@@ -236,11 +216,3 @@ Any OpenAI-compatible model:
 See [openrouter.ai/models](https://openrouter.ai/models) for full list.
 
 ---
-
-## Bot Icon
-
-Add an emoji icon to your reviews:
-
-```yaml
-bot_icon: "🐰"
-```
