@@ -243,6 +243,30 @@ func (c *Client) PostReview(ctx context.Context, body string) error {
 	return nil
 }
 
+// AddLabel adds a label to the PR.
+func (c *Client) AddLabel(ctx context.Context, label string) error {
+	if c.owner == "" || c.repo == "" || c.prNumber == 0 {
+		return nil
+	}
+	_, _, err := c.ghClient.Issues.AddLabelsToIssue(ctx, c.owner, c.repo, c.prNumber, []string{label})
+	if err != nil {
+		return fmt.Errorf("add label: %w", err)
+	}
+	return nil
+}
+
+// RemoveLabel removes a label from the PR.
+func (c *Client) RemoveLabel(ctx context.Context, label string) error {
+	if c.owner == "" || c.repo == "" || c.prNumber == 0 {
+		return nil
+	}
+	_, err := c.ghClient.Issues.RemoveLabelForIssue(ctx, c.owner, c.repo, c.prNumber, label)
+	if err != nil {
+		return fmt.Errorf("remove label: %w", err)
+	}
+	return nil
+}
+
 // GetEnvToken returns the GitHub token from environment.
 func GetEnvToken() string {
 	return os.Getenv("GITHUB_TOKEN")

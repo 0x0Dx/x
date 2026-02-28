@@ -13,10 +13,17 @@ import (
 )
 
 var (
-	postToGitHub bool
-	ghToken      string
-	prNumber     int
-	repoFullName string
+	postToGitHub    bool
+	ghToken         string
+	prNumber        int
+	repoFullName    string
+	disableReview   bool
+	lightModel      string
+	heavyModel      string
+	systemMessage   string
+	summarizePrompt string
+	language        string
+	openAIBaseURL   string
 )
 
 var reviewCmd = &cobra.Command{
@@ -34,7 +41,15 @@ var reviewCmd = &cobra.Command{
 			Model:       model,
 			Temperature: temperature,
 			MaxTokens:   maxTokens,
-			Verbose:     verbose,
+			Debug:       verbose,
+
+			LightModel:    lightModel,
+			HeavyModel:    heavyModel,
+			SystemMessage: systemMessage,
+			Language:      language,
+			OpenAIBaseURL: openAIBaseURL,
+
+			DisableReview: disableReview,
 		}
 
 		var ghClient *github.Client
@@ -57,9 +72,6 @@ var reviewCmd = &cobra.Command{
 		r := reviewer.New(cfg, ghClient)
 		result, err := r.Review(context.Background(), string(diffContent))
 		if err != nil {
-			if !postToGitHub {
-				fmt.Fprintf(os.Stderr, "Review failed: %v\n", err)
-			}
 			jsonOut, _ := result.ToJSON()
 			fmt.Println(jsonOut)
 			return fmt.Errorf("review failed: %w", err)
@@ -71,12 +83,78 @@ var reviewCmd = &cobra.Command{
 		}
 
 		if postToGitHub && ghClient != nil && prNumber > 0 && repoFullName != "" {
-			if err := ghClient.PostReview(context.Background(), result.Review); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to post review to GitHub: %v\n", err)
+			_ = ghClient.PostReview(context.Background(), result.Review)
+
+			for _, label := range result.LabelsAdded {
+				if label != "" {
+					_ = ghClient.AddLabel(context.Background(), label)
+				}
 			}
 		}
 
 		fmt.Println(jsonOut)
+		return nil
+	},
+}
+
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run full review workflow",
+	Long:  "Runs the complete review workflow including diff generation, review, and posting to GitHub.",
+	Args:  cobra.NoArgs,
+	RunE: func(_ *cobra.Command, _ []string) error {
+		cfg := reviewer.Config{
+			Model:           model,
+			Temperature:     temperature,
+			MaxTokens:       maxTokens,
+			Debug:           verbose,
+			LightModel:      lightModel,
+			HeavyModel:      heavyModel,
+			SystemMessage:   systemMessage,
+			SummarizePrompt: summarizePrompt,
+			Language:        language,
+			OpenAIBaseURL:   openAIBaseURL,
+			DisableReview:   disableReview,
+		}
+
+		ghClient := getGitHubClient()
+		r := reviewer.New(cfg, ghClient)
+
+		diffContent, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+
+		if prNumber == 0 || repoFullName == "" {
+			return fmt.Errorf("PR number and repo are required")
+		}
+
+		parts := splitRepo(repoFullName)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid repo format: expected owner/repo")
+		}
+
+		result, err := r.Review(context.Background(), string(diffContent))
+		if err != nil {
+			if ghClient != nil {
+				_ = ghClient.PostReview(context.Background(), fmt.Sprintf("❌ Review failed: %v", err))
+			}
+			return fmt.Errorf("review failed: %w", err)
+		}
+
+		if ghClient != nil {
+			_ = ghClient.PostReview(context.Background(), result.Review)
+
+			for _, label := range result.LabelsAdded {
+				if label != "" {
+					_ = ghClient.AddLabel(context.Background(), label)
+				}
+			}
+
+			_ = ghClient.RemoveLabel(context.Background(), "ai_code_review")
+		}
+
+		fmt.Println("✅ Review completed")
 		return nil
 	},
 }
@@ -95,5 +173,21 @@ func init() {
 	reviewCmd.Flags().StringVar(&ghToken, "token", "", "GitHub token (or use GITHUB_TOKEN env var)")
 	reviewCmd.Flags().IntVar(&prNumber, "pr", 0, "PR number")
 	reviewCmd.Flags().StringVar(&repoFullName, "repo", "", "Repository (owner/repo)")
+	reviewCmd.Flags().StringVar(&lightModel, "light-model", "", "Model for light tasks")
+	reviewCmd.Flags().StringVar(&heavyModel, "heavy-model", "", "Model for heavy tasks")
+	reviewCmd.Flags().StringVar(&systemMessage, "system-message", "", "System message")
+	reviewCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
+	reviewCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
 	RootCmd.AddCommand(reviewCmd)
+
+	runCmd.Flags().IntVar(&prNumber, "pr", 0, "PR number")
+	runCmd.Flags().StringVar(&repoFullName, "repo", "", "Repository (owner/repo)")
+	runCmd.Flags().StringVar(&lightModel, "light-model", "", "Model for light tasks")
+	runCmd.Flags().StringVar(&heavyModel, "heavy-model", "", "Model for heavy tasks")
+	runCmd.Flags().StringVar(&systemMessage, "system-message", "", "System message")
+	runCmd.Flags().StringVar(&summarizePrompt, "summarize-prompt", "", "Summarize prompt")
+	runCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
+	runCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
+	runCmd.Flags().BoolVar(&disableReview, "disable-review", false, "Only provide summary")
+	RootCmd.AddCommand(runCmd)
 }

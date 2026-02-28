@@ -1,21 +1,35 @@
 name: GoReviewer
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
-  pull_request:
-    types: [labeled]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+
+concurrency:
+  group:
+    ${{ github.repository }}-${{ github.event.number || github.head_ref ||
+    github.sha }}-${{ github.workflow }}-${{ github.event_name ==
+    'pull_request_review_comment' && 'pr_comment' || 'pr' }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
 
 jobs:
   goreviewer:
-    name: GoReviewer
     runs-on: ubuntu-latest
-    if: github.event.action == 'labeled' && github.event.label.name == 'ai_code_review'
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
     steps:
-      - name: AI Code Review
-        uses: 0x0Dx/x/goreviewer@main
+      - uses: actions/checkout@v4
+      - uses: ./goreviewer/
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         with:
+          debug: true
+          review_comment_lgtm: false
+          openai_base_url: https://openrouter.ai/api/v1
+          openai_light_model: stepfun/step-3.5-flash:free
+          openai_heavy_model: stepfun/step-3.5-flash:free
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
