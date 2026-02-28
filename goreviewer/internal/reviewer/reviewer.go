@@ -37,6 +37,11 @@ type ReviewResponse struct {
 	LabelsAdded      []string `json:"labels_added"`
 }
 
+// CommentResponse represents the response to a comment.
+type CommentResponse struct {
+	Response string `json:"response"`
+}
+
 // Reviewer handles AI code reviews.
 type Reviewer struct {
 	cfg        Config
@@ -79,6 +84,76 @@ func (r *Reviewer) Review(ctx context.Context, diffContent string) (ReviewRespon
 	}
 
 	return r.parseResponse(body)
+}
+
+// RespondToComment generates an AI response to a PR comment.
+func (r *Reviewer) RespondToComment(ctx context.Context, comment string) (CommentResponse, error) {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		return CommentResponse{Response: "Error: Missing OPENROUTER_API_KEY environment variable"}, errors.New("missing API key")
+	}
+
+	prompt := r.buildCommentPrompt(comment)
+
+	repoFull := os.Getenv("REPO_FULL_NAME")
+	referer := fmt.Sprintf("https://github.com/%s", repoFull)
+
+	body, err := r.callAPI(ctx, apiKey, referer, prompt)
+	if err != nil {
+		return CommentResponse{Response: fmt.Sprintf("Error: API call failed: %v", err)}, err
+	}
+
+	return r.parseCommentResponse(body)
+}
+
+func (r *Reviewer) buildCommentPrompt(comment string) string {
+	var b strings.Builder
+
+	b.WriteString("You are an AI code reviewer assistant. A user has mentioned you in a pull request comment.\n\n")
+	b.WriteString("Provide a helpful response to their comment. This could be:\n")
+	b.WriteString("- Answering a question\n")
+	b.WriteString("- Explaining code\n")
+	b.WriteString("- Generating a test plan\n")
+	b.WriteString("- Providing additional context\n")
+	b.WriteString("- Or responding appropriately to any other request\n\n")
+	b.WriteString("Be concise, helpful, and conversational. If the comment is just a mention without a specific request, offer to help.\n\n")
+
+	if r.ghClient != nil && r.ghClient.Token != "" {
+		b.WriteString("You have access to the following PR context:\n")
+		r.addGitHubContext(&b)
+		b.WriteString("\n")
+	}
+
+	b.WriteString("---\n\n")
+	b.WriteString("User comment:\n")
+	b.WriteString(comment)
+
+	return b.String()
+}
+
+func (r *Reviewer) parseCommentResponse(body []byte) (CommentResponse, error) {
+	var resp apiResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return CommentResponse{Response: "Error: Invalid JSON response from API"}, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	if resp.Error.Message != "" {
+		return CommentResponse{Response: "Error: " + resp.Error.Message}, errors.New(resp.Error.Message)
+	}
+
+	if len(resp.Choices) == 0 {
+		return CommentResponse{Response: "Error: No response from AI"}, errors.New("empty response")
+	}
+
+	content := resp.Choices[0].Message.Content
+	if content == "" {
+		return CommentResponse{Response: "Error: Empty response content"}, errors.New("empty content")
+	}
+
+	content = removeThinking(content)
+	content = strings.TrimSpace(content)
+
+	return CommentResponse{Response: content}, nil
 }
 
 func (r *Reviewer) buildPrompt(diffContent string) string {

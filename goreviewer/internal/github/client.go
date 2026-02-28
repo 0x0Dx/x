@@ -243,6 +243,17 @@ func (c *Client) PostReview(ctx context.Context, body string) error {
 	return nil
 }
 
+// ReplyToComment replies to a specific comment.
+func (c *Client) ReplyToComment(ctx context.Context, owner, repo string, _ int64, body string) error {
+	_, _, err := c.ghClient.Issues.CreateComment(ctx, owner, repo, c.prNumber, &github.IssueComment{
+		Body: &body,
+	})
+	if err != nil {
+		return fmt.Errorf("reply to comment: %w", err)
+	}
+	return nil
+}
+
 // GetEnvToken returns the GitHub token from environment.
 func GetEnvToken() string {
 	return os.Getenv("GITHUB_TOKEN")

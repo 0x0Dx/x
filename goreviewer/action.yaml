@@ -50,7 +50,19 @@ runs:
       with:
         fetch-depth: 0
 
+    - name: Determine event type
+      id: event
+      shell: bash
+      run: |
+        EVENT_TYPE="${{ github.event_name }}"
+        echo "type=$EVENT_TYPE" >> "$GITHUB_OUTPUT"
+        if [ "$EVENT_TYPE" = "issue_comment" ]; then
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          echo "comment_body=$COMMENT_BODY" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Get PR diff
+      if: steps.event.outputs.type == 'pull_request'
       shell: bash
       run: |
         BASE_REF="${{ github.event.pull_request.base.ref }}"
@@ -63,6 +75,7 @@ runs:
         go install github.com/0x0Dx/x/goreviewer@latest
 
     - name: Run AI Code Review
+      if: steps.event.outputs.type == 'pull_request'
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
@@ -142,6 +155,64 @@ runs:
         gh issue edit "$PR_NUMBER" --remove-label "ai_code_review" 2>/dev/null || true
 
         echo "✅ AI review completed. Decision: $DECISION"
+
+    - name: Respond to @mention
+      if: steps.event.outputs.type == 'issue_comment'
+      shell: bash
+      env:
+        GITHUB_TOKEN: "${{ inputs.github_token }}"
+        OPENROUTER_API_KEY: "${{ inputs.openrouter_api_key }}"
+        MODEL: "${{ inputs.model }}"
+        TEMPERATURE: "${{ inputs.temperature }}"
+        MAX_TOKENS: "${{ inputs.max_tokens }}"
+        COMMENT_BODY: "${{ steps.event.outputs.comment_body }}"
+        REPO_FULL_NAME: "${{ github.repository }}"
+        DEBUG_MODE: "${{ inputs.debug_mode }}"
+      run: |
+        set +e
+
+        # Check if goreviewer was mentioned
+        if [[ "$COMMENT_BODY" != *"@goreviewer"* ]]; then
+          echo "No @goreviewer mention found, skipping"
+          exit 0
+        fi
+
+        # Extract the message after @goreviewer
+        MESSAGE=$(echo "$COMMENT_BODY" | sed 's/.*@goreviewer//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+
+        if [ -z "$MESSAGE" ]; then
+          echo "No message after @goreviewer mention"
+          exit 0
+        fi
+
+        # Get PR number from issue
+        PR_NUMBER="${{ github.event.issue.number }}"
+        COMMENT_ID="${{ github.event.comment.id }}"
+
+        # Run goreviewer comment command
+        AI_RESPONSE=$(echo "$MESSAGE" | goreviewer comment --message "$MESSAGE" --comment-id "$COMMENT_ID")
+        EXIT_CODE=$?
+
+        if [ "$DEBUG_MODE" = "true" ]; then
+          echo "=== RAW AI RESPONSE ==="
+          echo "$AI_RESPONSE"
+          echo "=== EXIT CODE: $EXIT_CODE ==="
+        fi
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "❌ AI response failed with exit code $EXIT_CODE"
+          exit 1
+        fi
+
+        if [ -z "$AI_RESPONSE" ]; then
+          echo "❌ AI response is empty"
+          exit 1
+        fi
+
+        # Post reply to comment
+        echo "$AI_RESPONSE" | gh issue comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
+
+        echo "✅ AI response posted"
 
     - name: Fail if requested
       if: inputs.fail_on_requested_changes == 'true'

@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 
+	"github.com/0x0Dx/x/goreviewer/internal/github"
 	"github.com/spf13/cobra"
 )
 
@@ -40,4 +43,40 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&model, "model", defaultModel, "AI model to use")
 	RootCmd.PersistentFlags().Float64Var(&temperature, "temperature", defaultTemperature, "Sampling temperature")
 	RootCmd.PersistentFlags().IntVar(&maxTokens, "max-tokens", defaultMaxTokens, "Maximum tokens in response")
+
+	RootCmd.AddCommand(reviewCmd)
+	RootCmd.AddCommand(commentCmd)
+}
+
+func getGitHubClient() *github.Client {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		return nil
+	}
+
+	client := github.NewClient()
+	client.SetToken(token)
+
+	owner := os.Getenv("REPO_FULL_NAME")
+	if owner == "" {
+		return client
+	}
+
+	parts := splitRepo(owner)
+	if len(parts) != 2 {
+		return client
+	}
+
+	prNumStr := os.Getenv("PR_NUMBER")
+	if prNumStr == "" {
+		return client
+	}
+
+	prNum, err := strconv.Atoi(prNumStr)
+	if err != nil {
+		return client
+	}
+
+	client.SetPR(parts[0], parts[1], prNum)
+	return client
 }
