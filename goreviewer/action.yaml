@@ -74,6 +74,7 @@ runs:
       with:
         go-version: '1.25.7'
         cache: true
+        go-version-file: './goreviewer/go.mod'
 
     - name: Get PR number
       id: get_pr
