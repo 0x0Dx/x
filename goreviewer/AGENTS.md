@@ -6,8 +6,8 @@ AI-powered code reviewer using OpenAI-compatible APIs.
 
 - **Type**: CLI tool + GitHub Action
 - **Entry**: `main.go`
-- **Commands**: `cmd/review.go` (`review`, `run`)
-- **Core**: `internal/reviewer/reviewer.go`, `internal/github/client.go`
+- **Commands**: `cmd/root.go`, `cmd/review.go`, `cmd/run.go`, `cmd/comment.go`
+- **Core**: `internal/reviewer/`, `internal/github/client.go`
 
 ## Commands
 
@@ -17,6 +17,9 @@ goreviewer review [flags]
 
 # Full workflow (review + summarize + post to GitHub)
 goreviewer run [flags]
+
+# Respond to a review comment
+goreviewer comment [flags]
 ```
 
 ## Key Configuration
@@ -52,21 +55,28 @@ go test -cover ./...
 goreviewer/
 ├── main.go           # Entry point
 ├── cmd/
-│   ├── root.go       # Root command
-│   └── review.go     # review & run commands
+│   ├── root.go      # Root command & helpers
+│   ├── review.go    # review command
+│   ├── run.go       # run command
+│   └── comment.go  # comment command
 ├── internal/
-│   ├── reviewer/     # Core review logic
-│   │   └── reviewer.go
-│   └── github/       # GitHub API client
+│   ├── reviewer/    # Core review logic
+│   │   ├── reviewer.go  # Config, types, main methods
+│   │   ├── api.go      # API calls & response parsing
+│   │   ├── prompts.go  # Prompt building
+│   │   └── helpers.go  # Helper functions
+│   └── github/      # GitHub API client
 │       └── client.go
-└── action.yaml       # GitHub Action
+└── action.yaml      # GitHub Action
 ```
 
 ## Important Files
 
-- `internal/reviewer/reviewer.go` - Core AI review logic, API calls
+- `internal/reviewer/reviewer.go` - Config, types, main review methods
+- `internal/reviewer/api.go` - OpenAI API calls and response parsing
+- `internal/reviewer/prompts.go` - Prompt building logic
 - `internal/github/client.go` - GitHub API interactions
-- `cmd/review.go` - CLI command handlers
+- `cmd/` - CLI command handlers
 - `action.yaml` - GitHub Action definition
 
 ## Error Handling
