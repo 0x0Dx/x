@@ -523,3 +523,27 @@ RUN mkdir -p /sources && cd /sources && \
   CC=gcc make PREFIX="/usr" DESTDIR=/lz4 && \
   make DESTDIR=/lz4 install && \
   make install
+
+# Attr
+FROM lz4 AS attr
+
+ENV ATTR_VERSION=2.5.2
+
+COPY --from=sources-downloader /sources/downloads/attr-${ATTR_VERSION}.tar.gz /sources/
+COPY ./patches/attr/basename.patch /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf attr-${ATTR_VERSION}.tar.xz && \
+  cd attr-${ATTR_VERSION} && \
+  mkdir -p /attr && \
+  patch -p1 < /sources/basename.patch && \
+  ./configure ${COMMON_ARGS} \
+    --disable-dependency-tracking \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --localstatedir=/var \
+    --disable-nls && \
+  make DESTDIR=/attr && \
+  make DESTDIR=/attr install && \
+  make install
