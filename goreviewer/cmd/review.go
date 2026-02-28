@@ -54,7 +54,10 @@ var reviewCmd = &cobra.Command{
 			DisableReview: disableReview,
 		}
 
-		ghClient := getGitHubClientForPR(ghToken, prNumber, repoFullName)
+		ghClient, err := getGitHubClientForPR(ghToken, prNumber, repoFullName)
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub client: %w", err)
+		}
 
 		r := reviewer.New(cfg, ghClient)
 		result, err := r.Review(context.Background(), string(diffContent))
@@ -138,26 +141,32 @@ func splitRepo(s string) []string {
 	return strings.SplitN(s, "/", 2)
 }
 
-func getGitHubClientForPR(ghToken string, prNumber int, repoFullName string) *github.Client {
+func getGitHubClientForPR(ghToken string, prNumber int, repoFullName string) (*github.Client, error) {
 	if ghToken == "" && github.GetEnvToken() == "" {
-		return nil
+		return nil, nil
 	}
 
-	ghClient := github.NewClient()
 	token := ghToken
 	if token == "" {
 		token = github.GetEnvToken()
 	}
+
+	if len(token) < 10 {
+		return nil, fmt.Errorf("invalid GitHub token: token too short")
+	}
+
+	ghClient := github.NewClient()
 	ghClient.SetToken(token)
 
 	if prNumber > 0 && repoFullName != "" {
 		parts := splitRepo(repoFullName)
-		if len(parts) == 2 {
-			ghClient.SetPR(parts[0], parts[1], prNumber)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid repo format: expected owner/repo")
 		}
+		ghClient.SetPR(parts[0], parts[1], prNumber)
 	}
 
-	return ghClient
+	return ghClient, nil
 }
 
 func postReview(ghClient *github.Client, review string, labels []string) {
@@ -227,7 +236,10 @@ var commentCmd = &cobra.Command{
 			OpenAIBaseURL: openAIBaseURL,
 		}
 
-		ghClient := getGitHubClientForPR(ghToken, prNumber, repoFullName)
+		ghClient, err := getGitHubClientForPR(ghToken, prNumber, repoFullName)
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub client: %w", err)
+		}
 
 		r := reviewer.New(cfg, ghClient)
 
