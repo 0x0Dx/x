@@ -436,3 +436,17 @@ RUN mkdir -p /sources && cd /sources && tar -xvf pkgconf-${PKGCONFIG_VERSION}.ta
   make DESTDIR=/pkgconfig install && \
   make install && \
   ln -s pkgconf /pkgconfig/usr/bin/pkg-config
+
+# Autoconf
+FROM stage1 AS autoconf
+
+ENV AUTOCONF_VERSION=2.71
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz && \
+  tar -xvf autoconf-${AUTOCONF_VERSION}.tar.xz && \
+  cd autoconf-${AUTOCONF_VERSION} && \
+  mkdir -p /autoconf && \
+  ./configure ${COMMON_ARGS} && \
+  make DESTDIR=/autoconf && \
+  make DESTDIR=/autoconf install && \
+  make install
