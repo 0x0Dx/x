@@ -102,6 +102,8 @@ runs:
     - name: Get PR number
       id: get_pr
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       run: |
         if [ "${{ github.event_name }}" = "issue_comment" ]; then
           echo "PR_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
@@ -114,6 +116,8 @@ runs:
     - name: Get PR diff
       id: get_diff
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       run: |
         PR_NUMBER="${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL="${{ github.repository }}"
