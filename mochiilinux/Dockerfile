@@ -48,14 +48,69 @@ RUN apk update && apk add \
   make \
   patch \
   busybox-static \
-  curl
+  curl \
+  linux-headers \
+  gmp \
+  mpfr \
+  mpc
 
-RUN git clone https://github.com/firasuke/mussel.git /mussel && \
-  cd /mussel && \
-  git checkout 95dec40aee2077aa703b7abc7372ba4d34abb889 -b build && \
-  ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
+# Build glibc for cross-compilation
+ENV GLIBC_VERSION=2.40
 
-ENV PATH=/mussel/toolchain/bin:$PATH
+RUN wget -q https://ftp.gnu.org/gnu/glibc/glibc-${GLIBC_VERSION}.tar.xz && \
+  tar -xf glibc-${GLIBC_VERSION}.tar.xz
+
+RUN cd glibc-${GLIBC_VERSION} && \
+  mkdir build && cd build && \
+  ../configure \
+    --prefix=/usr \
+    --build=x86_64-linux-gnu \
+    --host=x86_64-mochii-linux-gnu \
+    --with-headers=/usr/include \
+    --disable-nscd \
+    libc_cv_forced_unwind=yes && \
+  make -j${JOBS} && \
+  make install install_root=/cross-root
+
+
+# Build gcc for cross-compilation
+ENV GCC_VERSION=14.3.0
+ENV GMP_VERSION=6.3.0
+ENV MPC_VERSION=1.3.1
+ENV MPFR_VERSION=4.2.2
+
+RUN wget -q https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz && \
+  tar -xf gcc-${GCC_VERSION}.tar.xz
+
+RUN wget -q https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 && \
+  wget -q https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz && \
+  wget -q https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2 && \
+  tar -xf gmp-${GMP_VERSION}.tar.bz2 && \
+  tar -xf mpc-${MPC_VERSION}.tar.gz && \
+  tar -xf mpfr-${MPFR_VERSION}.tar.bz2 && \
+  mv gmp-${GMP_VERSION} gcc-${GCC_VERSION}/gmp && \
+  mv mpc-${MPC_VERSION} gcc-${GCC_VERSION}/mpc && \
+  mv mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
+
+RUN cd gcc-${GCC_VERSION} && \
+  mkdir build && cd build && \
+  ../configure \
+    --prefix=/usr \
+    --build=x86_64-linux-gnu \
+    --host=x86_64-mochii-linux-gnu \
+    --target=x86_64-mochii-linux-gnu \
+    --with-sysroot=/cross-root \
+    --disable-nls \
+    --enable-languages=c,c++ \
+    --enable-c99 \
+    --enable-long-long \
+    --disable-libmudflap \
+    --disable-multilib \
+    --disable-libsanitizer && \
+  make -j${JOBS} && \
+  make install install_root=/cross-root
+
+ENV PATH=/cross-root/usr/bin:$PATH
 
 
 # =============================================================================
@@ -155,26 +210,6 @@ RUN cd busybox-${BUSYBOX_VERSION} && \
   make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/sysroot" install
 
 
-FROM stage0 AS glibc-stage0
-
-ENV GLIBC_VERSION=2.40
-ENV GLIBC_URL=https://ftp.gnu.org/gnu/glibc
-
-RUN wget -q ${GLIBC_URL}/glibc-${GLIBC_VERSION}.tar.xz && \
-  tar -xf glibc-${GLIBC_VERSION}.tar.xz
-
-RUN cd glibc-${GLIBC_VERSION} && \
-  mkdir build && cd build && \
-  ../configure \
-    --prefix=/usr \
-    --build=${BUILD} \
-    --host=${TARGET} \
-    --with-headers=/sysroot/usr/include \
-    --disable-nscd && \
-  make -j${JOBS} && \
-  DESTDIR=/sysroot make -j${JOBS} install
-
-
 FROM stage0 AS gcc-stage0
 
 ENV GCC_VERSION=14.3.0
@@ -248,7 +283,7 @@ RUN cd binutils-${BINUTILS_VERSION} && \
   make DESTDIR=/sysroot install
 
 
-FROM alpine AS alpine-headers
+FROM stage0 AS alpine-headers
 RUN apk add linux-headers
 
 
@@ -261,13 +296,13 @@ RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 COPY --from=gcc-stage0 /sysroot /gcc
-COPY --from=glibc-stage0 /sysroot /glibc
+COPY --from=stage0 /cross-root /cross-root
 COPY --from=busybox-stage0 /sysroot /busybox
 COPY --from=make-stage0 /sysroot /make
 COPY --from=binutils-stage0 /sysroot /binutils
 
 RUN rsync -aHAX --keep-dirlinks /gcc/. /skeleton && \
-  rsync -aHAX --keep-dirlinks /glibc/. /skeleton && \
+  rsync -aHAX --keep-dirlinks /cross-root/. /skeleton && \
   rsync -aHAX --keep-dirlinks /busybox/. /skeleton && \
   rsync -aHAX --keep-dirlinks /make/. /skeleton && \
   rsync -aHAX --keep-dirlinks /binutils/. /skeleton
@@ -312,21 +347,6 @@ RUN gcc --version && make --version && \
 # =============================================================================
 # Stage 1.x: Native packages
 # =============================================================================
-FROM stage1 AS glibc
-
-ENV GLIBC_VERSION=2.40
-ENV GLIBC_URL=https://ftp.gnu.org/gnu/glibc
-
-RUN wget -q ${GLIBC_URL}/glibc-${GLIBC_VERSION}.tar.xz && \
-  tar -xf glibc-${GLIBC_VERSION}.tar.xz
-
-RUN cd glibc-${GLIBC_VERSION} && \
-  mkdir build && cd build && \
-  ../configure --prefix=/usr --disable-nscd && \
-  make -j${JOBS} && \
-  DESTDIR=/sysroot make -j${JOBS} install
-
-
 FROM stage1 AS pkgconfig
 
 ENV PKGCONFIG_VERSION=1.8.1
@@ -989,8 +1009,7 @@ FROM stage0 AS stage2-merge
 RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
-
-COPY --from=glibc /sysroot /glibc
+COPY --from=stage0 /cross-root /cross-root
 COPY --from=coreutils /coreutils /coreutils
 COPY --from=curl /curl /curl
 COPY --from=openssl /openssl /openssl
@@ -1007,7 +1026,7 @@ COPY --from=libcap /libcap /libcap
 COPY --from=util-linux /util-linux /util-linux
 COPY --from=systemd /systemd /systemd
 
-RUN rsync -aHAX --keep-dirlinks /glibc/. /skeleton && \
+RUN rsync -aHAX --keep-dirlinks /cross-root/. /skeleton && \
   rsync -aHAX --keep-dirlinks /coreutils/. /skeleton && \
   rsync -aHAX --keep-dirlinks /curl/. /skeleton && \
   rsync -aHAX --keep-dirlinks /openssl/. /skeleton && \
