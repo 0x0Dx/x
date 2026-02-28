@@ -17,6 +17,15 @@ import (
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 )
 
+var emojiRegex = regexp.MustCompile(`^[\p{L}\p{N}\s]+$`)
+
+func isValidBotIcon(icon string) bool {
+	if icon == "" || len(icon) > 50 {
+		return false
+	}
+	return emojiRegex.MatchString(icon)
+}
+
 const (
 	reviewHeader    = "## AI Code Review"
 	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/goreviewer)*"
@@ -529,7 +538,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 	}
 
 	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
-	if r.cfg.BotIcon != "" && len(r.cfg.BotIcon) <= 50 {
+	if isValidBotIcon(r.cfg.BotIcon) {
 		footer = fmt.Sprintf("\n\n---\n%s %s\n", r.cfg.BotIcon, reviewFooter)
 	}
 	result.Review += footer
