@@ -7,7 +7,7 @@ Monorepo containing tools.
 - [`cliimage`](./cliimage) Terminal image viewer.
 - [`goserv`](./goserv) HTTP file server.
 - [`gitx`](./gitx) Simple git wrapper.
-- [`goreviewer`](./goreviewer)
+- [`goreviewer`](./goreviewer) AI-powered code reviewer using OpenAI API
 
 ## Installation 
  
