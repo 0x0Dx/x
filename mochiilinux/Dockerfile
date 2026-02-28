@@ -115,7 +115,7 @@ RUN tar -xzf systemd-${SYSTEMD_VERSION}.tar.gz && \
   git clone https://github.com/openembedded/openembedded-core /oe-core && \
   cd /oe-core && \
   git checkout ${OE_CORE_VERSION} && \
-  cp /mochiilinux/patches/apply_all.sh /apply_all.sh && \
+  cp /patches/apply_all.sh /apply_all.sh && \
   chmod +x /apply_all.sh && \
   /apply_all.sh /oe-core/meta/recipes-core/systemd/systemd/ /sources/downloads/systemd
 
@@ -125,7 +125,7 @@ RUN tar -xzf systemd-${SYSTEMD_VERSION}.tar.gz && \
 # =============================================================================
 FROM stage0 AS skeleton
 
-COPY mochiilinux/setup_rootfs.sh /setup_rootfs.sh
+COPY setup_rootfs.sh /setup_rootfs.sh
 RUN chmod +x /setup_rootfs.sh && SYSROOT=/sysroot /setup_rootfs.sh
 
 
@@ -296,7 +296,7 @@ RUN apk update && apk add m4
 # =============================================================================
 FROM stage1 AS test1
 
-COPY mochiilinux/tests/gcc/test.c /test.c
+COPY tests/gcc/test.c /test.c
 
 RUN gcc --version && make --version && \
   gcc -Wall /test.c -o /test && /test
@@ -409,7 +409,7 @@ FROM lz4 AS attr
 ENV ATTR_VERSION=2.5.2
 
 COPY --from=sources /sources/downloads/attr-${ATTR_VERSION}.tar.gz /sources/
-COPY mochiilinux/patches/attr/basename.patch /sources/
+COPY patches/attr/basename.patch /sources/
 
 RUN tar -xzf /sources/attr-${ATTR_VERSION}.tar.gz && \
   cd attr-${ATTR_VERSION} && \
@@ -581,8 +581,8 @@ FROM readline AS bash
 
 ENV BASH_VERSION=5.3
 
-COPY mochiilinux/files/bash/bashrc /bashrc
-COPY mochiilinux/files/bash/profile-bashrc.sh /profile-bashrc.sh
+COPY files/bash/bashrc /bashrc
+COPY files/bash/profile-bashrc.sh /profile-bashrc.sh
 
 RUN wget -q http://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
   tar -xzf bash-${BASH_VERSION}.tar.gz
@@ -765,7 +765,7 @@ RUN tar -xjf /sources/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 && \
   make && \
   make DESTDIR=/ca-certificates install
 
-COPY mochiilinux/files/ca-certificates/post_install.sh /post_install.sh
+COPY files/ca-certificates/post_install.sh /post_install.sh
 RUN bash /post_install.sh
 
 
