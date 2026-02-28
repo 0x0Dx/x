@@ -108,8 +108,6 @@ inputs:
       !**/*.pb.go
       !**/*.lock
       !**/*.ttf
-      !**/*.yaml
-      !**/*.yml
       !**/*.cfg
       !**/*.toml
       !**/*.ini
