@@ -18,10 +18,14 @@ import (
 )
 
 var safeIconRegex = regexp.MustCompile(`^[\p{L}\p{N}\p{Po}\p{S}\s]+$`)
+var avatarRegex = regexp.MustCompile(`^<img src="[^"]+" alt="[^"]+" width="\d+" height="\d+" ?/?>$`)
 
 func isValidBotIcon(icon string) bool {
-	if icon == "" || len(icon) > 50 {
+	if icon == "" || len(icon) > 100 {
 		return false
+	}
+	if avatarRegex.MatchString(icon) {
+		return true
 	}
 	return safeIconRegex.MatchString(icon)
 }
