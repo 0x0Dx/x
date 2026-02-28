@@ -17,9 +17,18 @@ import (
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 )
 
+var safeIconRegex = regexp.MustCompile(`^[\p{L}\p{N}\p{Po}\p{S}\s]+$`)
+
+func isValidBotIcon(icon string) bool {
+	if icon == "" || len(icon) > 50 {
+		return false
+	}
+	return safeIconRegex.MatchString(icon)
+}
+
 const (
 	reviewHeader    = "## AI Code Review"
-	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/goreviewer)*"
+	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/tree/main/goreviewer)*"
 	maxDiffSize     = 5000000
 	defaultModel    = "minimax/minimax-m2.5"
 	defaultBaseURL  = "https://openrouter.ai/api/v1"
@@ -527,6 +536,12 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 	if result.Review == "" {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
+
+	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
+	if isValidBotIcon(r.cfg.BotIcon) {
+		footer = fmt.Sprintf("\n\n---\n%s %s\n", r.cfg.BotIcon, reviewFooter)
+	}
+	result.Review += footer
 
 	return result, nil
 }

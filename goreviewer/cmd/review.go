@@ -24,6 +24,7 @@ var (
 	summarizePrompt string
 	language        string
 	openAIBaseURL   string
+	botIcon         string
 )
 
 var reviewCmd = &cobra.Command{
@@ -48,6 +49,7 @@ var reviewCmd = &cobra.Command{
 			SystemMessage: systemMessage,
 			Language:      language,
 			OpenAIBaseURL: openAIBaseURL,
+			BotIcon:       botIcon,
 
 			DisableReview: disableReview,
 		}
@@ -114,6 +116,7 @@ var runCmd = &cobra.Command{
 			SummarizePrompt: summarizePrompt,
 			Language:        language,
 			OpenAIBaseURL:   openAIBaseURL,
+			BotIcon:         botIcon,
 			DisableReview:   disableReview,
 		}
 
@@ -178,6 +181,7 @@ func init() {
 	reviewCmd.Flags().StringVar(&systemMessage, "system-message", "", "System message")
 	reviewCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
 	reviewCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
+	reviewCmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon (emoji only)")
 	RootCmd.AddCommand(reviewCmd)
 
 	runCmd.Flags().IntVar(&prNumber, "pr", 0, "PR number")
@@ -188,6 +192,7 @@ func init() {
 	runCmd.Flags().StringVar(&summarizePrompt, "summarize-prompt", "", "Summarize prompt")
 	runCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
 	runCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
+	runCmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon (emoji only)")
 	runCmd.Flags().BoolVar(&disableReview, "disable-review", false, "Only provide summary")
 	RootCmd.AddCommand(runCmd)
 }

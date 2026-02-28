@@ -30,6 +30,6 @@ jobs:
           debug: true
           review_comment_lgtm: false
           openai_base_url: https://openrouter.ai/api/v1
-          openai_light_model: stepfun/step-3.5-flash:free
-          openai_heavy_model: stepfun/step-3.5-flash:free
+          openai_light_model: arcee-ai/trinity-mini:free
+          openai_heavy_model: arcee-ai/trinity-large-preview:free
           github_token: ${{ secrets.GITHUB_TOKEN }}
