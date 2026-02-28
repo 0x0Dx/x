@@ -130,7 +130,7 @@ jobs:
 ### Example with Options
 
 ```yaml
-- name: AI Code Review
+- name: GoReviewer
   uses: 0x0Dx/x/goreviewer@main
   with:
     github_token: ${{ secrets.GITHUB_TOKEN }}
