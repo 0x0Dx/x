@@ -28,7 +28,7 @@ func isValidBotIcon(icon string) bool {
 
 const (
 	reviewHeader    = "## AI Code Review"
-	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/goreviewer)*"
+	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/tree/main/goreviewer)*"
 	maxDiffSize     = 5000000
 	defaultModel    = "minimax/minimax-m2.5"
 	defaultBaseURL  = "https://openrouter.ai/api/v1"
