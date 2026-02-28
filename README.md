@@ -7,7 +7,6 @@ Monorepo containing tools.
 - [`cliimage`](./cliimage) Terminal image viewer.
 - [`goserv`](./goserv) HTTP file server.
 - [`gitx`](./gitx) Simple git wrapper.
-- [`mochii`](./mochii) Package manager inspired by early Nix.
 
 ## Installation 
  
@@ -15,7 +14,6 @@ Monorepo containing tools.
 go install github.com/0x0Dx/x/cliimage@main
 go install github.com/0x0Dx/x/goserv@main
 go install github.com/0x0Dx/x/gitx@main
-go install github.com/0x0Dx/x/mochii@main
 ```
 
 ## Development
