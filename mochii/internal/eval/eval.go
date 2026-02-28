@@ -90,7 +90,6 @@ func New(db *db.DB, valuesDir, logDir, sourcesDir string) *Evaluator {
 func (e *Evaluator) EvalValue(expr interface{}) (*EvalResult, error) {
 	switch x := expr.(type) {
 	case string:
-		// String literal
 		return &EvalResult{
 			Expr: x,
 			Hash: hasher.FromString(x),
@@ -100,6 +99,64 @@ func (e *Evaluator) EvalValue(expr interface{}) (*EvalResult, error) {
 			Expr: x,
 			Hash: hasher.FromString(fmt.Sprintf("%t", x)),
 		}, nil
+	case nil:
+		return &EvalResult{
+			Expr: nil,
+			Hash: hasher.FromString("null"),
+		}, nil
+	case ExprString:
+		return &EvalResult{
+			Expr: x.Value,
+			Hash: hasher.FromString(x.Value),
+		}, nil
+	case ExprBool:
+		return &EvalResult{
+			Expr: x.Value,
+			Hash: hasher.FromString(fmt.Sprintf("%t", x.Value)),
+		}, nil
+	case ExprExternal:
+		return &EvalResult{
+			Expr: x,
+			Hash: x.Hash,
+		}, nil
+	case ExprHash:
+		return &EvalResult{
+			Expr: x,
+			Hash: x.Hash,
+		}, nil
+	case ExprDeref:
+		hashVal, err := EvalHash(*e, x.Expr)
+		if err != nil {
+			return nil, fmt.Errorf("deref eval hash: %w", err)
+		}
+		loaded, err := loadExpr(hashVal, e.ValuesDir)
+		if err != nil {
+			return nil, fmt.Errorf("deref load: %w", err)
+		}
+		return e.EvalValue(loaded)
+	case ExprApp:
+		funcResult, err := e.EvalValue(x.Func)
+		if err != nil {
+			return nil, fmt.Errorf("app func: %w", err)
+		}
+		if lam, ok := funcResult.Expr.(ExprLam); ok {
+			argResult, err := e.EvalValue(x.Arg)
+			if err != nil {
+				return nil, fmt.Errorf("app arg: %w", err)
+			}
+			return e.EvalValue(subst(lam.Var, argResult.Expr, lam.Body))
+		}
+		return &EvalResult{
+			Expr: x,
+			Hash: HashExpr(x),
+		}, nil
+	case ExprLam:
+		return &EvalResult{
+			Expr: x,
+			Hash: HashExpr(x),
+		}, nil
+	case ExprExec:
+		return e.evalExec(x)
 	case map[string]interface{}:
 		return e.evalDerivation(x)
 	default:
@@ -481,4 +538,112 @@ func EvalArgs(e Evaluator, args []interface{}) ([]Arg, error) {
 		result = append(result, Arg{Name: name, Value: eVal.Expr})
 	}
 	return result, nil
+}
+
+func subst(varName string, value Expr, body Expr) Expr {
+	switch x := body.(type) {
+	case string:
+		if x == varName {
+			return value
+		}
+		return x
+	case ExprString:
+		return x
+	case ExprBool:
+		return x
+	case ExprExternal:
+		return x
+	case ExprHash:
+		return x
+	case ExprDeref:
+		return ExprDeref{
+			Expr: subst(varName, value, x.Expr),
+		}
+	case ExprApp:
+		return ExprApp{
+			Func: subst(varName, value, x.Func),
+			Arg:  subst(varName, value, x.Arg),
+		}
+	case ExprLam:
+		if x.Var == varName {
+			return x
+		}
+		return ExprLam{
+			Var:  x.Var,
+			Body: subst(varName, value, x.Body),
+		}
+	case ExprExec:
+		newArgs := make([]Expr, len(x.Args))
+		for i, a := range x.Args {
+			newArgs[i] = subst(varName, value, a)
+		}
+		return ExprExec{
+			Platform: subst(varName, value, x.Platform),
+			Prog:     subst(varName, value, x.Prog),
+			Args:     newArgs,
+		}
+	case map[string]interface{}:
+		result := make(map[string]interface{})
+		for k, v := range x {
+			result[k] = subst(varName, value, v)
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, len(x))
+		for i, v := range x {
+			result[i] = subst(varName, value, v)
+		}
+		return result
+	default:
+		return body
+	}
+}
+
+func (e *Evaluator) evalExec(x ExprExec) (*EvalResult, error) {
+	_, err := EvalString(*e, x.Platform)
+	if err != nil {
+		return nil, fmt.Errorf("exec platform: %w", err)
+	}
+
+	_, err = EvalHash(*e, x.Prog)
+	if err != nil {
+		return nil, fmt.Errorf("exec prog: %w", err)
+	}
+
+	env := make(Environment)
+	for _, arg := range x.Args {
+		argMap, ok := arg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nameVal, ok := argMap["name"]
+		if !ok {
+			continue
+		}
+		name, err := EvalString(*e, nameVal)
+		if err != nil {
+			continue
+		}
+		valExpr, ok := argMap["value"]
+		if !ok {
+			continue
+		}
+		eVal, err := e.EvalValue(valExpr)
+		if err != nil {
+			continue
+		}
+		switch v := eVal.Expr.(type) {
+		case string:
+			env[name] = v
+		case ExprString:
+			env[name] = v.Value
+		}
+	}
+
+	sourceHash := hasher.FromString(PrintExpr(x))
+
+	return &EvalResult{
+		Expr: ExprHash{Hash: sourceHash},
+		Hash: sourceHash,
+	}, nil
 }
