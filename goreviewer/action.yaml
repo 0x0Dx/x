@@ -115,7 +115,7 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
-        OPENAI_API_KEY: "${{ inputs.openai_api_key }}"
+        OPENROUTER_API_KEY: "${{ inputs.openai_api_key }}"
         PR_NUMBER: "${{ github.event.pull_request.number }}"
         REPO_FULL_NAME: "${{ github.repository }}"
         DEBUG: "${{ inputs.debug }}"
