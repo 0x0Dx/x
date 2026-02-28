@@ -12,6 +12,9 @@ import (
 	"github.com/0x0Dx/x/mochii/internal/db"
 	"github.com/0x0Dx/x/mochii/internal/hasher"
 	"github.com/0x0Dx/x/mochii/internal/helper"
+	"github.com/0x0Dx/x/mochii/internal/nar"
+	"github.com/0x0Dx/x/mochii/internal/store"
+	"github.com/0x0Dx/x/mochii/internal/values"
 )
 
 // Database table names.
@@ -41,16 +44,27 @@ type Builder struct {
 	SourcesDir string // Where source tarballs are stored
 	InstallDir string // Where built packages are installed
 	LogDir     string // Where build logs are stored
+	ValuesDir  string // Where values are stored
+	Store      *store.Store
+	Values     *values.Manager
 }
 
 // New creates a new Builder with the given directories.
 func New(db *db.DB, sourcesDir, installDir, logDir string) *Builder {
-	return &Builder{
+	valuesDir := installDir // Values stored in install dir
+
+	b := &Builder{
 		DB:         db,
 		SourcesDir: sourcesDir,
 		InstallDir: installDir,
 		LogDir:     logDir,
+		ValuesDir:  valuesDir,
 	}
+
+	b.Store = store.New(db, sourcesDir, installDir)
+	b.Values = values.New(db, valuesDir)
+
+	return b
 }
 
 // GetFile returns the path to a source file given its 	hasher.
@@ -593,4 +607,50 @@ func (b *Builder) CollectGarbage(profilePath string) ([]string, error) {
 	}
 
 	return toDelete, nil
+}
+
+// CreateNar creates a NAR archive of a package.
+func (b *Builder) CreateNar(path string) (string, error) {
+	hash, err := nar.Hash(path)
+	if err != nil {
+		return "", fmt.Errorf("nar hash: %w", err)
+	}
+	return hash, nil
+}
+
+// ExtractNar extracts a NAR archive.
+func (b *Builder) ExtractNar(archive, dest string) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return fmt.Errorf("open archive: %w", err)
+	}
+	defer f.Close()
+
+	r := nar.NewReader(f)
+	return r.Extract(dest)
+}
+
+// QueryStore performs store queries.
+func (b *Builder) QueryStore(args []string) ([]store.QueryResult, error) {
+	return b.Store.Query(args)
+}
+
+// VerifyStore verifies store consistency.
+func (b *Builder) VerifyStore() ([]string, error) {
+	return b.Store.Verify()
+}
+
+// QueryGraveyard returns unreachable store paths.
+func (b *Builder) QueryGraveyard(profilePath string) ([]string, error) {
+	return b.Store.QueryGraveyard(profilePath)
+}
+
+// AddValue adds a value to the store.
+func (b *Builder) AddValue(path string) (hasher.Hash, error) {
+	return b.Values.AddValue(path)
+}
+
+// QueryValuePath queries a value path by hash.
+func (b *Builder) QueryValuePath(hash hasher.Hash) (string, error) {
+	return b.Values.QueryValuePath(hash)
 }
