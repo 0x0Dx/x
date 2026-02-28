@@ -528,6 +528,12 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
 
+	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
+	if r.cfg.BotIcon != "" {
+		footer = fmt.Sprintf("\n\n---\n%s %s\n", r.cfg.BotIcon, reviewFooter)
+	}
+	result.Review += footer
+
 	return result, nil
 }
 
