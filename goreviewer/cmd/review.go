@@ -40,7 +40,6 @@ var reviewCmd = &cobra.Command{
 		}
 
 		cfg := reviewer.Config{
-			Model:       model,
 			Temperature: temperature,
 			MaxTokens:   maxTokens,
 			Debug:       verbose,
@@ -86,7 +85,6 @@ var runCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		cfg := reviewer.Config{
-			Model:           model,
 			Temperature:     temperature,
 			MaxTokens:       maxTokens,
 			Debug:           verbose,
@@ -213,7 +211,6 @@ var commentCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		cfg := reviewer.Config{
-			Model:         model,
 			Temperature:   temperature,
 			MaxTokens:     maxTokens,
 			Debug:         verbose,

@@ -57,10 +57,7 @@ type Config struct {
 	SummarizePrompt     string
 	Language            string
 	BotIcon             string
-
-	// Legacy options (for backward compatibility)
-	Model     string
-	MaxTokens int
+	MaxTokens           int
 }
 
 // ReviewResponse represents the AI review response.
@@ -211,17 +208,11 @@ func (r *Reviewer) selectModel(isHeavy bool) string {
 	if isHeavy {
 		model := r.cfg.HeavyModel
 		if model == "" {
-			model = r.cfg.Model
-		}
-		if model == "" {
 			model = defaultHeavyModel
 		}
 		return model
 	}
 	model := r.cfg.LightModel
-	if model == "" {
-		model = r.cfg.Model
-	}
 	if model == "" {
 		model = defaultLightModel
 	}

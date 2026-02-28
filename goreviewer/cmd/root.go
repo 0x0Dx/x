@@ -11,13 +11,11 @@ import (
 
 var (
 	verbose     bool
-	model       string
 	temperature float64
 	maxTokens   int
 )
 
 const (
-	defaultModel       = "gpt-3.5-turbo"
 	defaultTemperature = 0.1
 	defaultMaxTokens   = 64000
 )
@@ -40,7 +38,6 @@ func Execute() error {
 
 func init() {
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	RootCmd.PersistentFlags().StringVar(&model, "model", defaultModel, "AI model to use")
 	RootCmd.PersistentFlags().Float64Var(&temperature, "temperature", defaultTemperature, "Sampling temperature")
 	RootCmd.PersistentFlags().IntVar(&maxTokens, "max-tokens", defaultMaxTokens, "Maximum tokens in response")
 }
