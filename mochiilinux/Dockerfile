@@ -377,7 +377,14 @@ ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
 # Copy the merged root filesystem into the final image
 COPY --from=stage1-merge /skeleton /
 
-# Install build dependencies needed for compiling packages
+
+# -----------------------------------------------------------------------------
+# Build Dependencies Stage: Install build tools needed for compiling packages
+# -----------------------------------------------------------------------------
+# This stage installs additional build dependencies needed by autoconf and
+# other autotools. We need Alpine Linux for this, so we use a hybrid approach.
+# -----------------------------------------------------------------------------
+FROM alpine AS build-deps
 RUN apk add m4
 
 
@@ -441,7 +448,9 @@ RUN mkdir -p /sources && cd /sources && tar -xvf pkgconf-${PKGCONFIG_VERSION}.ta
   ln -s pkgconf /pkgconfig/usr/bin/pkg-config
 
 # Autoconf
-FROM stage1 AS autoconf
+FROM build-deps AS autoconf
+
+COPY --from=stage1-merge /skeleton /
 
 ENV AUTOCONF_VERSION=2.71
 
@@ -455,7 +464,9 @@ RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/autoconf/aut
   make install
 
 # Automake
-FROM stage1 AS automake
+FROM build-deps AS automake
+
+COPY --from=stage1-merge /skeleton /
 
 ENV AUTOMAKE_VERSION=1.16.5
 
