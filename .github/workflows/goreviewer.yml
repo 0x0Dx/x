@@ -7,8 +7,6 @@ permissions:
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  pull_request_review_comment:
-    types: [created]
   issue_comment:
     types: [created]
 
@@ -19,12 +17,31 @@ concurrency:
 jobs:
   goreviewer:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/goreviewer')) ||
-      (github.event_name == 'pull_request_review_comment' && startsWith(github.event.comment.body, '/goreviewer'))
     steps:
+      - name: Debug event
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Is PR: ${{ github.event.issue.pull_request }}"
+
+      - name: Check if should run
+        id: should_run
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            BODY="${{ github.event.comment.body }}"
+            if [[ "$BODY" == "/goreviewer"* ]]; then
+              echo "run=true" >> $GITHUB_OUTPUT
+            else
+              echo "run=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: GoReviewer
+        if: steps.should_run.outputs.run == 'true'
         uses: 0x0Dx/x/goreviewer@feat/support-comment-replies
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
