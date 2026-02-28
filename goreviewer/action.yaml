@@ -11,9 +11,9 @@ inputs:
     description: "GitHub token for posting comments"
     default: "${{ github.token }}"
   openai_api_key:
-    required: false
+    required: true
     description: "OpenAI API key"
-    default: "${{ secrets.OPENAI_API_KEY }}"
+    default: ""
   debug:
     required: false
     description: "Enable debug mode"
@@ -108,8 +108,6 @@ inputs:
       !**/*.pb.go
       !**/*.lock
       !**/*.ttf
-      !**/*.yaml
-      !**/*.yml
       !**/*.cfg
       !**/*.toml
       !**/*.ini
@@ -265,7 +263,7 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
-        OPENROUTER_API_KEY: "${{ inputs.openai_api_key }}"
+        OPENAI_API_KEY: "${{ inputs.openai_api_key }}"
         PR_NUMBER: "${{ github.event.pull_request.number }}"
         REPO_FULL_NAME: "${{ github.repository }}"
         DEBUG: "${{ inputs.debug }}"

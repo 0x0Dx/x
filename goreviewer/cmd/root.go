@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	defaultModel       = "minimax/minimax-m2.5"
+	defaultModel       = "gpt-3.5-turbo"
 	defaultTemperature = 0.1
 	defaultMaxTokens   = 64000
 )

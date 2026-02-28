@@ -27,12 +27,13 @@ func isValidBotIcon(icon string) bool {
 }
 
 const (
-	reviewHeader    = "## AI Code Review"
-	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/tree/main/goreviewer)*"
-	maxDiffSize     = 5000000
-	defaultModel    = "minimax/minimax-m2.5"
-	defaultBaseURL  = "https://openrouter.ai/api/v1"
-	defaultLanguage = "en-US"
+	reviewHeader      = "## AI Code Review"
+	reviewFooter      = "*Review by [GoReviewer](https://github.com/0x0Dx/x/tree/main/goreviewer)*"
+	maxDiffSize       = 5000000
+	defaultLightModel = "gpt-3.5-turbo"
+	defaultHeavyModel = "gpt-4"
+	defaultBaseURL    = "https://api.openai.com/v1"
+	defaultLanguage   = "en-US"
 )
 
 // Config holds reviewer configuration.
@@ -122,21 +123,9 @@ func (r *Reviewer) Review(ctx context.Context, diffContent string) (ReviewRespon
 		return errorResponse(fmt.Sprintf("Diff is too large (%d bytes, max: %d bytes)", len(diffContent), maxDiffSize)), errors.New("diff too large")
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
-	if apiKey == "" {
-		return errorResponse("Missing OPENROUTER_API_KEY or OPENAI_API_KEY environment variable"), errors.New("missing API key")
-	}
-
-	// Determine which model to use
-	model := r.cfg.HeavyModel
-	if model == "" {
-		model = r.cfg.Model
-	}
-	if model == "" {
-		model = defaultModel
+		return errorResponse("Missing OPENAI_API_KEY environment variable"), errors.New("missing API key")
 	}
 
 	// Build the prompt
@@ -151,6 +140,7 @@ func (r *Reviewer) Review(ctx context.Context, diffContent string) (ReviewRespon
 		baseURL = defaultBaseURL
 	}
 
+	model := r.selectModel(true)
 	body, err := r.callAPI(ctx, apiKey, baseURL, referer, model, prompt)
 	if err != nil {
 		return errorResponse(fmt.Sprintf("API call failed: %v", err)), err
@@ -165,18 +155,12 @@ func (r *Reviewer) Summarize(ctx context.Context, diffContent string) (SummaryRe
 		return SummaryResponse{}, errors.New("empty diff content")
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return SummaryResponse{}, errors.New("missing API key")
 	}
 
-	model := r.cfg.LightModel
-	if model == "" {
-		model = defaultModel
-	}
+	model := r.selectModel(false)
 
 	prompt := r.buildSummarizePrompt(diffContent)
 
@@ -198,21 +182,12 @@ func (r *Reviewer) Summarize(ctx context.Context, diffContent string) (SummaryRe
 
 // RespondToReviewComment responds to a review comment.
 func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewCommentRequest) (string, error) {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return "", errors.New("missing API key")
 	}
 
-	model := r.cfg.HeavyModel
-	if model == "" {
-		model = r.cfg.Model
-	}
-	if model == "" {
-		model = defaultModel
-	}
+	model := r.selectModel(true)
 
 	prompt := r.buildReviewCommentPrompt(req)
 
@@ -230,6 +205,24 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 	}
 
 	return r.parseSimpleResponse(body)
+}
+
+func (r *Reviewer) selectModel(isHeavy bool) string {
+	if isHeavy {
+		model := r.cfg.HeavyModel
+		if model == "" {
+			model = r.cfg.Model
+		}
+		if model == "" {
+			model = defaultHeavyModel
+		}
+		return model
+	}
+	model := r.cfg.LightModel
+	if model == "" {
+		model = defaultLightModel
+	}
+	return model
 }
 
 func (r *Reviewer) buildReviewPrompt(diffContent string) string {
@@ -537,11 +530,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
 
-	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
-	if isValidBotIcon(r.cfg.BotIcon) {
-		footer = fmt.Sprintf("\n\n---\n%s %s\n", r.cfg.BotIcon, reviewFooter)
-	}
-	result.Review += footer
+	result.Review += buildFooter(r.cfg.BotIcon)
 
 	return result, nil
 }
@@ -631,12 +620,20 @@ func isValidJSON(s string) bool {
 }
 
 func errorResponse(msg string) ReviewResponse {
-	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
+	footer := buildFooter("")
 	return ReviewResponse{
 		Review:           reviewHeader + "\n\n❌ **Error**: " + msg + footer,
 		FailPassWorkflow: "uncertain",
 		LabelsAdded:      []string{},
 	}
+}
+
+func buildFooter(botIcon string) string {
+	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
+	if isValidBotIcon(botIcon) {
+		footer = fmt.Sprintf("\n\n---\n%s %s\n", botIcon, reviewFooter)
+	}
+	return footer
 }
 
 // ToJSON converts the ReviewResponse to JSON string.
