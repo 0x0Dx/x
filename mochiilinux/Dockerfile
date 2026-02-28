@@ -227,3 +227,24 @@ RUN cd /sources && tar -xvf make-${MAKE_VERSION}.tar.gz && \
   --build=${BUILD_ARCH} --host=${TARGET} && \
   make -j${JOBS} && \
   make -j${JOBS} DESTDIR=/sysroot install
+
+# Binutils
+FROM stage0 AS binutils-stage0
+
+ENV BINUTILS_VERSION=2.44
+RUN mkdir /sources && cd /sources && \
+  wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
+
+RUN cd /sources && tar -xvf binutils-${BINUTILS_VERSION}.tar.gz && \
+  cd binutils-${BINUTILS_VERSION} && \
+  ./configure \
+    --prefix=/usr \
+    --build=${BUILD_ARCH} \
+    --host=${TARGET} \
+    --target=${TARGET} \
+    --with-sysroot=/ \
+    --disable-nls \
+    --disable-multilib \
+    --enable-shared && \
+  make -j${JOBS} && \
+  make DESTDIR=/sysroot install ;
