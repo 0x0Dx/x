@@ -140,7 +140,7 @@ var runCmd = &cobra.Command{
 		result, err := r.Review(context.Background(), string(diffContent))
 		if err != nil {
 			if ghClient != nil {
-				_ = ghClient.PostReview(context.Background(), fmt.Sprintf("❌ Review failed: %v", err))
+				_ = ghClient.PostReview(context.Background(), result.Review)
 			}
 			return fmt.Errorf("review failed: %w", err)
 		}
