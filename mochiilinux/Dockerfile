@@ -130,3 +130,27 @@ FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
 RUN chmod +x ./setup_rootfs.sh && SYSROOT=/sysroot ./setup_rootfs.sh
+
+# Stage0 - building the packages using the cross-compiler
+
+# Busybox
+FROM stage0 AS busybox-stage0
+
+ENV BUSYBOX_VERSION=1.37.0
+
+RUN mkdir /sources && cd /sources && \
+  wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
+
+RUN cd /sources && tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
+  cd busybox-${BUSYBOX_VERSION} && \
+  make distclean && \
+  make ARCH="${ARCH}" defconfig && \
+  sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
+  sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/g' .config && \
+  sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/g' .config && \
+  sed -i 's/\(CONFIG_FEATURE_UTMP\)=y/# \1 is not set/g' .config && \
+  sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/g' .config && \
+  sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/g' .config && \
+  sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/g' .config && \
+  make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" && \
+  make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/sysroot" install
