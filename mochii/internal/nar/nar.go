@@ -217,7 +217,6 @@ func (nr *Reader) Extract(dest string) error {
 		if cleanName == "." {
 			continue
 		}
-		// Reject absolute or parent-directory entries to prevent path traversal.
 		if filepath.IsAbs(cleanName) || strings.Contains(cleanName, "..") {
 			return fmt.Errorf("archive entry %q has unsafe path %q", header.Name, cleanName)
 		}
@@ -260,64 +259,27 @@ func (nr *Reader) Extract(dest string) error {
 			}
 			f.Close()
 			os.Chmod(absTarget, header.FileInfo().Mode())
-
-			// Validate the symlink target so that it cannot escape absDest,
-			// taking into account any existing symlinks on disk.
-			linkTarget := header.Linkname
-			if linkTarget == "" {
-				return fmt.Errorf("empty symlink target for %q", header.Name)
-			}
-			if filepath.IsAbs(linkTarget) {
-				return fmt.Errorf("absolute symlink target %q for %q is not allowed", linkTarget, header.Name)
-			}
-
-			// Interpret the symlink target relative to the directory containing the symlink.
-			linkDir := filepath.Dir(absTarget)
-			candidatePath := filepath.Clean(filepath.Join(linkDir, linkTarget))
-
-			// Resolve any existing symlinks along the path.
-			resolvedTarget, err := filepath.EvalSymlinks(candidatePath)
-			if err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("resolve symlink target for %q: %w", header.Name, err)
-			}
-			if err == nil {
-				// Only enforce the prefix check when we could resolve the path.
-				checkPath := resolvedTarget
-				prefix := absDest
-				if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
-					prefix += string(os.PathSeparator)
-				}
-				if resolvedTarget != absDest && !strings.HasPrefix(checkPath, prefix) {
-					return fmt.Errorf("symlink %q with target %q would resolve outside destination", header.Name, linkTarget)
-				}
-			}
-
-			if err := os.Symlink(linkTarget, absTarget); err != nil {
+		case tar.TypeSymlink:
 			if err := os.MkdirAll(filepath.Dir(absTarget), 0755); err != nil {
 				return fmt.Errorf("mkdir for symlink: %w", err)
 			}
-			// Ensure symlink target is constrained within the destination directory.
-			linkTargetClean := filepath.Clean(header.Linkname)
-			if filepath.IsAbs(linkTargetClean) || strings.Contains(linkTargetClean, "..") {
-				return fmt.Errorf("archive entry %q has unsafe symlink target %q", header.Name, header.Linkname)
+			linkTarget := header.Linkname
+			if filepath.IsAbs(linkTarget) {
+				return fmt.Errorf("absolute symlink target %q for %q is not allowed", linkTarget, header.Name)
 			}
-			linkTargetPath := filepath.Join(absDest, linkTargetClean)
-			linkTargetAbs, err := filepath.Abs(linkTargetPath)
-			if err != nil {
-				return fmt.Errorf("invalid symlink target for %q: %w", header.Name, err)
+			linkDir := filepath.Dir(absTarget)
+			candidatePath := filepath.Clean(filepath.Join(linkDir, linkTarget))
+			resolvedTarget, err := filepath.EvalSymlinks(candidatePath)
+			if err == nil {
+				linkPrefix := absDest
+				if !strings.HasSuffix(linkPrefix, string(os.PathSeparator)) {
+					linkPrefix += string(os.PathSeparator)
+				}
+				if resolvedTarget != absDest && !strings.HasPrefix(resolvedTarget, linkPrefix) {
+					return fmt.Errorf("symlink %q with target %q would resolve outside destination", header.Name, linkTarget)
+				}
 			}
-			linkCheck := linkTargetAbs
-			if !strings.HasSuffix(linkCheck, string(os.PathSeparator)) && strings.HasSuffix(linkTargetClean, string(os.PathSeparator)) {
-				linkCheck += string(os.PathSeparator)
-			}
-			prefix := absDest
-			if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
-				prefix += string(os.PathSeparator)
-			}
-			if linkTargetAbs != absDest && !strings.HasPrefix(linkCheck, prefix) {
-				return fmt.Errorf("symlink %q would point outside destination", header.Name)
-			}
-			if err := os.Symlink(linkTargetAbs, absTarget); err != nil {
+			if err := os.Symlink(linkTarget, absTarget); err != nil {
 				return fmt.Errorf("create symlink: %w", err)
 			}
 		}

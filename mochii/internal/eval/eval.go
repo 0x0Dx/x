@@ -29,6 +29,14 @@ type ExprExternal struct {
 	Hash hasher.Hash
 }
 
+type ExprHash struct {
+	Hash hasher.Hash
+}
+
+type ExprDeref struct {
+	Expr Expr
+}
+
 type ExprApp struct {
 	Func Expr
 	Arg  Expr
@@ -330,6 +338,10 @@ func PrintExpr(e Expr) string {
 		return "false"
 	case ExprExternal:
 		return fmt.Sprintf("External(%s)", x.Hash)
+	case ExprHash:
+		return fmt.Sprintf("Hash(%s)", x.Hash)
+	case ExprDeref:
+		return fmt.Sprintf("(deref %s)", PrintExpr(x.Expr))
 	case ExprApp:
 		return fmt.Sprintf("(%s %s)", PrintExpr(x.Func), PrintExpr(x.Arg))
 	case ExprLam:
@@ -401,6 +413,41 @@ func EvalExternal(e Evaluator, expr Expr) (hasher.Hash, error) {
 	default:
 		return "", BadTerm("external non-expression value expected", eVal.Expr)
 	}
+}
+
+func EvalHash(e Evaluator, expr Expr) (hasher.Hash, error) {
+	eVal, err := e.EvalValue(expr)
+	if err != nil {
+		return "", err
+	}
+
+	switch x := eVal.Expr.(type) {
+	case ExprHash:
+		if _, err := hasher.Parse(string(x.Hash)); err != nil {
+			return "", err
+		}
+		return x.Hash, nil
+	case hasher.Hash:
+		if _, err := hasher.Parse(string(x)); err != nil {
+			return "", err
+		}
+		return x, nil
+	default:
+		return "", BadTerm("value reference expected", eVal.Expr)
+	}
+}
+
+func loadExpr(h hasher.Hash, valuesDir string) (Expr, error) {
+	path := filepath.Join(valuesDir, fmt.Sprintf("%s.expr", h))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading expression from %s: %w", path, err)
+	}
+	var expr interface{}
+	if err := json.Unmarshal(data, &expr); err != nil {
+		return nil, fmt.Errorf("parsing expression: %w", err)
+	}
+	return expr, nil
 }
 
 type Arg struct {
