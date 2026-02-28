@@ -377,6 +377,9 @@ ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
 # Copy the merged root filesystem into the final image
 COPY --from=stage1-merge /skeleton /
 
+# Install build dependencies needed for compiling packages
+RUN apk add m4
+
 
 # -----------------------------------------------------------------------------
 # Test Stage: Verify the build environment works correctly
@@ -463,4 +466,34 @@ RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/automake/aut
   ./configure ${COMMON_ARGS} && \
   make DESTDIR=/autoconf && \
   make DESTDIR=/autoconf install && \
+  make install
+
+# XXHash
+FROM stage1 AS xxhash
+
+ENV XXHASH_VERSION=0.8.3
+
+COPY --from=sources-downloader /sources/downloads/xxHash-${XXHASH_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf xxHash-${XXHASH_VERSION}.tar.xz && \
+  cd xxHash-${XXHASH_VERSION} && \
+  mkdir -p /xxhash && \
+  CC=gcc make DESTDIR=/xxhash && \
+  make DESTDIR=/xxhash install && \
+  make install
+
+# Zstd
+FROM xxhash AS zstd
+
+ENV ZSTD_VERSION=1.5.7
+
+COPY --from=sources-downloader /sources/downloads/zstd-${ZSTD_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && \
+  tar -xvf zstd-${ZSTD_VERSION}.tar.xz && \
+  cd zstd-${ZSTD_VERSION} && \
+  mkdir -p /zstd && \
+  CC=gcc make DESTDIR=/zstd && \
+  make DESTDIR=/zstd install && \
   make install
