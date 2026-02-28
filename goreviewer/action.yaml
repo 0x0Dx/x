@@ -72,9 +72,9 @@ runs:
         fetch-depth: 0
     - uses: actions/setup-go@v6.3.0
       with:
-        go-version: '1.25.7'
         cache: true
         go-version-file: './goreviewer/go.mod'
+        cache-dependency-path: ./goreviewer/go.sum
 
     - name: Get PR number
       id: get_pr

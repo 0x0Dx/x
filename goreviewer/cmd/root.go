@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strconv"
+	"strings"
 
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 	"github.com/spf13/cobra"
@@ -20,7 +19,7 @@ const (
 	defaultMaxTokens   = 64000
 )
 
-// RootCmd is the root cobra command.
+// RootCmd is the root command.
 var RootCmd = &cobra.Command{
 	Use:   "goreviewer",
 	Short: "AI-powered code reviewer",
@@ -40,37 +39,40 @@ func init() {
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	RootCmd.PersistentFlags().Float64Var(&temperature, "temperature", defaultTemperature, "Sampling temperature")
 	RootCmd.PersistentFlags().IntVar(&maxTokens, "max-tokens", defaultMaxTokens, "Maximum tokens in response")
+
+	RootCmd.AddCommand(NewReviewCmd())
+	RootCmd.AddCommand(NewRunCmd())
+	RootCmd.AddCommand(NewCommentCmd())
 }
 
-func getGitHubClient() *github.Client {
-	token := os.Getenv("GITHUB_TOKEN")
+func splitRepo(s string) []string {
+	return strings.SplitN(s, "/", 2)
+}
+
+func getGitHubClient(ghToken string, prNumber int, repoFullName string) (*github.Client, error) {
+	if ghToken == "" && github.GetEnvToken() == "" {
+		return nil, nil
+	}
+
+	token := ghToken
 	if token == "" {
-		return nil
+		token = github.GetEnvToken()
 	}
 
-	client := github.NewClient()
-	client.SetToken(token)
-
-	owner := os.Getenv("REPO_FULL_NAME")
-	if owner == "" {
-		return client
+	if len(token) < 10 {
+		return nil, fmt.Errorf("invalid GitHub token: token too short")
 	}
 
-	parts := splitRepo(owner)
-	if len(parts) != 2 {
-		return client
+	ghClient := github.NewClient()
+	ghClient.SetToken(token)
+
+	if prNumber > 0 && repoFullName != "" {
+		parts := splitRepo(repoFullName)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid repo format: expected owner/repo")
+		}
+		ghClient.SetPR(parts[0], parts[1], prNumber)
 	}
 
-	prNumStr := os.Getenv("PR_NUMBER")
-	if prNumStr == "" {
-		return client
-	}
-
-	prNum, err := strconv.Atoi(prNumStr)
-	if err != nil {
-		return client
-	}
-
-	client.SetPR(parts[0], parts[1], prNum)
-	return client
+	return ghClient, nil
 }

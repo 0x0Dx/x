@@ -33,6 +33,12 @@ goreviewer review [flags]
 goreviewer run [flags]
 ```
 
+#### `comment` - Respond to a review comment
+
+```bash
+goreviewer comment [flags]
+```
+
 ### CLI Options
 
 | Flag | Default | Description |
@@ -49,7 +55,6 @@ goreviewer run [flags]
 | `--max-tokens` | 64000 | Max response tokens |
 | `--bot-icon` | - | Emoji icon for bot (e.g., 🐰) |
 | `--disable-review` | false | Skip code review, only summarize |
-| `--disable-release-notes` | false | Skip release notes generation |
 | `--token` | - | GitHub token (or use GITHUB_TOKEN env) |
 | `-v, --verbose` | false | Enable debug output |
 
@@ -139,18 +144,9 @@ jobs:
 | `openai_model_temperature` | No | 0.05 | Sampling temperature |
 | `openai_timeout_ms` | No | 360000 | API timeout (ms) |
 | `openai_retries` | No | 5 | Retry attempts |
-| `openai_concurrency_limit` | No | 6 | Concurrent API calls |
-| `github_concurrency_limit` | No | 6 | Concurrent GitHub API calls |
-| `max_files` | No | 150 | Max files to review |
 | `language` | No | en-US | Response language (ISO code) |
 | `system_message` | No | - | Custom system prompt |
 | `summarize` | No | - | Custom summarize prompt |
-| `summarize_release_notes` | No | - | Custom release notes prompt |
-| `disable_review` | No | false | Skip code review |
-| `disable_release_notes` | No | false | Skip release notes |
-| `review_simple_changes` | No | false | Review even simple changes |
-| `review_comment_lgtm` | No | false | Comment on LGTM reviews |
-| `path_filters` | No | - | Files to include/exclude |
 | `bot_icon` | No | - | Emoji icon (e.g., 🐰) |
 | `fail_on_requested_changes` | No | false | Fail workflow if AI rejects |
 | `debug` | No | false | Enable debug output |
