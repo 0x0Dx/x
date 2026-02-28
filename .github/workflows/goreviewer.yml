@@ -1,20 +1,25 @@
 name: GoReviewer
 
+permissions:
+  contents: read
+  pull-requests: write
+
 on:
-  issue_comment:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
     types: [created]
+
+concurrency:
+  group:
+    ${{ github.repository }}-${{ github.event.number || github.head_ref || github.sha }}-${{ github.workflow }}-${{ github.event_name == 'pull_request_review_comment' && 'pr_comment' || 'pr' }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
 
 jobs:
   goreviewer:
-    name: GoReviewer
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request != ''
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
     steps:
-      - name: AI Code Review
+      - name: GoReviewer
         uses: 0x0Dx/x/goreviewer@feat/support-comment-replies
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -48,6 +48,7 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v5
       with:
+        ref: ${{ github.event.pull_request.head.ref }}
         fetch-depth: 0
 
     - name: Determine event type
@@ -56,13 +57,13 @@ runs:
       run: |
         EVENT_TYPE="${{ github.event_name }}"
         echo "type=$EVENT_TYPE" >> "$GITHUB_OUTPUT"
-        if [ "$EVENT_TYPE" = "issue_comment" ]; then
+        if [ "$EVENT_TYPE" = "pull_request_review_comment" ]; then
           COMMENT_BODY="${{ github.event.comment.body }}"
           echo "comment_body=$COMMENT_BODY" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Get PR diff
-      if: steps.event.outputs.type == 'pull_request'
+      if: steps.event.outputs.type == 'pull_request_target'
       shell: bash
       run: |
         BASE_REF="${{ github.event.pull_request.base.ref }}"
@@ -75,7 +76,7 @@ runs:
         go install github.com/0x0Dx/x/goreviewer@latest
 
     - name: Run AI Code Review
-      if: steps.event.outputs.type == 'pull_request'
+      if: steps.event.outputs.type == 'pull_request_target'
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
@@ -95,7 +96,6 @@ runs:
         # Filter diff if patterns specified
         if [ -n "$EXCLUDE_PATTERNS" ]; then
           FILTERED_DIFF=$(mktemp)
-          # Create grep pattern from comma-separated list
           PATTERN=$(echo "$EXCLUDE_PATTERNS" | sed 's/,/|/g')
           grep -v -E "diff --git a/($PATTERN) " diff.txt > "$FILTERED_DIFF" 2>/dev/null || true
           if [ -s "$FILTERED_DIFF" ]; then
@@ -104,7 +104,6 @@ runs:
           rm -f "$FILTERED_DIFF"
         fi
 
-        # Run goreviewer
         AI_RESPONSE=$(cat diff.txt | goreviewer review --model "$MODEL" --temperature "$TEMPERATURE" --max-tokens "$MAX_TOKENS")
         EXIT_CODE=$?
 
@@ -126,21 +125,17 @@ runs:
           exit 1
         fi
 
-        # Validate JSON
         if ! echo "$AI_RESPONSE" | jq . >/dev/null 2>&1; then
           echo "⚠️ AI response is not valid JSON"
           echo "AI response could not be processed" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F - 2>/dev/null || true
           exit 1
         fi
 
-        # Extract fields
         REVIEW=$(echo "$AI_RESPONSE" | jq -r '.review // "No review provided"')
         DECISION=$(echo "$AI_RESPONSE" | jq -r '.fail_pass_workflow // "uncertain"' | tr -d '\n\r' | xargs)
 
-        # Post review comment
         echo "$REVIEW" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
 
-        # Add labels
         for label in $(echo "$AI_RESPONSE" | jq -r '.labels_added[]? // empty' 2>/dev/null); do
           if [ -n "$label" ]; then
             gh label create "$label" --color "0366d6" --description "AI reviewer" 2>/dev/null || true
@@ -148,16 +143,12 @@ runs:
           fi
         done
 
-        # Store decision for next step
         echo "DECISION=$DECISION" >> "$GITHUB_OUTPUT"
-
-        # Remove trigger label
-        gh issue edit "$PR_NUMBER" --remove-label "ai_code_review" 2>/dev/null || true
 
         echo "✅ AI review completed. Decision: $DECISION"
 
     - name: Respond to @mention
-      if: steps.event.outputs.type == 'issue_comment'
+      if: steps.event.outputs.type == 'pull_request_review_comment'
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
@@ -171,13 +162,11 @@ runs:
       run: |
         set +e
 
-        # Check if goreviewer was mentioned
         if [[ "$COMMENT_BODY" != *"@goreviewer"* ]]; then
           echo "No @goreviewer mention found, skipping"
           exit 0
         fi
 
-        # Extract the message after @goreviewer
         MESSAGE=$(echo "$COMMENT_BODY" | sed 's/.*@goreviewer//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 
         if [ -z "$MESSAGE" ]; then
@@ -185,11 +174,9 @@ runs:
           exit 0
         fi
 
-        # Get PR number from issue
-        PR_NUMBER="${{ github.event.issue.number }}"
+        PR_NUMBER="${{ github.event.pull_request.number }}"
         COMMENT_ID="${{ github.event.comment.id }}"
 
-        # Run goreviewer comment command
         AI_RESPONSE=$(echo "$MESSAGE" | goreviewer comment --message "$MESSAGE" --comment-id "$COMMENT_ID")
         EXIT_CODE=$?
 
@@ -209,8 +196,7 @@ runs:
           exit 1
         fi
 
-        # Post reply to comment
-        echo "$AI_RESPONSE" | gh issue comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
+        echo "$AI_RESPONSE" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
 
         echo "✅ AI response posted"
 
