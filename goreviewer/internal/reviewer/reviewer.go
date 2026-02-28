@@ -532,11 +532,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
 
-	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
-	if isValidBotIcon(r.cfg.BotIcon) {
-		footer = fmt.Sprintf("\n\n---\n%s %s\n", r.cfg.BotIcon, reviewFooter)
-	}
-	result.Review += footer
+	result.Review += buildFooter(r.cfg.BotIcon)
 
 	return result, nil
 }
@@ -626,12 +622,20 @@ func isValidJSON(s string) bool {
 }
 
 func errorResponse(msg string) ReviewResponse {
-	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
+	footer := buildFooter("")
 	return ReviewResponse{
 		Review:           reviewHeader + "\n\n❌ **Error**: " + msg + footer,
 		FailPassWorkflow: "uncertain",
 		LabelsAdded:      []string{},
 	}
+}
+
+func buildFooter(botIcon string) string {
+	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
+	if isValidBotIcon(botIcon) {
+		footer = fmt.Sprintf("\n\n---\n%s %s\n", botIcon, reviewFooter)
+	}
+	return footer
 }
 
 // ToJSON converts the ReviewResponse to JSON string.
