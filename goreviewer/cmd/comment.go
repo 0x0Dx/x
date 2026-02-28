@@ -18,7 +18,7 @@ var (
 var commentCmd = &cobra.Command{
 	Use:   "comment",
 	Short: "Respond to a GitHub comment",
-	Long:  "Generates AI response to a comment on a PR when @goreviewer is mentioned.",
+	Long:  "Generates AI response to a comment on a PR when /goreviewer is mentioned.",
 	Args:  cobra.NoArgs,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		if commentMsg == "" {

@@ -161,15 +161,15 @@ runs:
       run: |
         set +e
 
-        if [[ "$COMMENT_BODY" != *"@goreviewer"* ]]; then
-          echo "No @goreviewer mention found, skipping"
+        if [[ "$COMMENT_BODY" != *"/goreviewer"* ]]; then
+          echo "No /goreviewer mention found, skipping"
           exit 0
         fi
 
-        MESSAGE=$(echo "$COMMENT_BODY" | sed 's/.*@goreviewer//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        MESSAGE=$(echo "$COMMENT_BODY" | sed 's/.*/goreviewer//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 
         if [ -z "$MESSAGE" ]; then
-          echo "No message after @goreviewer mention"
+          echo "No message after /goreviewer mention"
           exit 0
         fi
 
