@@ -171,6 +171,37 @@ func NewReader(r io.Reader) *Reader {
 }
 
 // Extract extracts the NAR archive to a directory.
+	root, err := filepath.Abs(dest)
+	if err != nil {
+		return fmt.Errorf("resolve dest: %w", err)
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return fmt.Errorf("eval dest symlinks: %w", err)
+	}
+
+	isUnderRoot := func(p string) (string, error) {
+		if filepath.IsAbs(p) {
+			return "", fmt.Errorf("absolute path not allowed: %s", p)
+		}
+		joined := filepath.Join(root, p)
+		real, err := filepath.EvalSymlinks(joined)
+		if err != nil {
+			return "", err
+		}
+		rel, err := filepath.Rel(root, real)
+		if err != nil {
+			return "", err
+		}
+		if rel == "." {
+			return real, nil
+		}
+		if rel == ".." || len(rel) >= 3 && rel[:3] == ".."+string(os.PathSeparator) {
+			return "", fmt.Errorf("path escapes root: %s", p)
+		}
+		return real, nil
+	}
+
 func (nr *Reader) Extract(dest string) error {
 	// Ensure destination is an absolute, cleaned path.
 	absDest, err := filepath.Abs(filepath.Clean(dest))
@@ -185,6 +216,9 @@ func (nr *Reader) Extract(dest string) error {
 		}
 		if err != nil {
 			return fmt.Errorf("read next: %w", err)
+		path, err := isUnderRoot(header.Name)
+		if err != nil {
+			return fmt.Errorf("invalid path in archive: %w", err)
 		}
 
 		// Skip special files
@@ -210,7 +244,13 @@ func (nr *Reader) Extract(dest string) error {
 		if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
 			prefix += string(os.PathSeparator)
 		}
-		checkPath := absTarget
+			// Validate that the symlink target stays within the root as well.
+			if _, err := isUnderRoot(header.Linkname); err != nil {
+				return fmt.Errorf("invalid symlink target in archive: %w", err)
+			}
+			if err := os.Symlink(header.Linkname, path); err != nil {
+				return fmt.Errorf("create symlink: %w", err)
+			}
 		if !strings.HasSuffix(checkPath, string(os.PathSeparator)) && header.Typeflag == tar.TypeDir {
 			checkPath += string(os.PathSeparator)
 		}
