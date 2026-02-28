@@ -2,16 +2,48 @@
 package eval
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/0x0Dx/x/mochii/internal/db"
 	"github.com/0x0Dx/x/mochii/internal/hasher"
 )
+
+type Expr interface{}
+
+type ExprString struct {
+	Value string
+}
+
+type ExprBool struct {
+	Value bool
+}
+
+type ExprExternal struct {
+	Hash hasher.Hash
+}
+
+type ExprApp struct {
+	Func Expr
+	Arg  Expr
+}
+
+type ExprLam struct {
+	Var  string
+	Body Expr
+}
+
+type ExprExec struct {
+	Platform Expr
+	Prog     Expr
+	Args     []Expr
+}
 
 // EvalResult represents the result of evaluating an expression.
 type EvalResult struct {
@@ -263,4 +295,143 @@ func copyDir(src, dst string) error {
 		}
 		return os.Chmod(dstPath, info.Mode())
 	})
+}
+
+type EvalError struct {
+	Msg  string
+	Expr Expr
+}
+
+func (e *EvalError) Error() string {
+	return fmt.Sprintf("%s, in `%s'", e.Msg, PrintExpr(e.Expr))
+}
+
+func BadTerm(msg string, expr Expr) error {
+	return &EvalError{Msg: msg, Expr: expr}
+}
+
+func PrintExpr(e Expr) string {
+	switch x := e.(type) {
+	case string:
+		return fmt.Sprintf("%q", x)
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	case nil:
+		return "null"
+	case ExprString:
+		return fmt.Sprintf("%q", x.Value)
+	case ExprBool:
+		if x.Value {
+			return "true"
+		}
+		return "false"
+	case ExprExternal:
+		return fmt.Sprintf("External(%s)", x.Hash)
+	case ExprApp:
+		return fmt.Sprintf("(%s %s)", PrintExpr(x.Func), PrintExpr(x.Arg))
+	case ExprLam:
+		return fmt.Sprintf("(lambda %s . %s)", x.Var, PrintExpr(x.Body))
+	case ExprExec:
+		args := make([]string, len(x.Args))
+		for i, a := range x.Args {
+			args[i] = PrintExpr(a)
+		}
+		return fmt.Sprintf("(exec %s %s [%s])", PrintExpr(x.Platform), PrintExpr(x.Prog), strings.Join(args, ", "))
+	case map[string]interface{}:
+		keys := make([]string, 0, len(x))
+		for k := range x {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		var pairs []string
+		for _, k := range keys {
+			pairs = append(pairs, fmt.Sprintf("%s = %s", k, PrintExpr(x[k])))
+		}
+		return "{ " + strings.Join(pairs, "; ") + " }"
+	case []interface{}:
+		strs := make([]string, len(x))
+		for i, v := range x {
+			strs[i] = PrintExpr(v)
+		}
+		return "[" + strings.Join(strs, ", ") + "]"
+	default:
+		b, _ := json.Marshal(e)
+		return string(b)
+	}
+}
+
+func HashExpr(e Expr) hasher.Hash {
+	return hasher.FromString(PrintExpr(e))
+}
+
+func EvalString(e Evaluator, expr Expr) (string, error) {
+	eVal, err := e.EvalValue(expr)
+	if err != nil {
+		return "", err
+	}
+	eVal, err = e.EvalValue(eVal.Expr)
+	if err != nil {
+		return "", err
+	}
+
+	switch x := eVal.Expr.(type) {
+	case string:
+		return x, nil
+	case ExprString:
+		return x.Value, nil
+	default:
+		return "", BadTerm("string value expected", eVal.Expr)
+	}
+}
+
+func EvalExternal(e Evaluator, expr Expr) (hasher.Hash, error) {
+	eVal, err := e.EvalValue(expr)
+	if err != nil {
+		return "", err
+	}
+
+	switch x := eVal.Expr.(type) {
+	case ExprExternal:
+		return x.Hash, nil
+	case hasher.Hash:
+		return x, nil
+	default:
+		return "", BadTerm("external non-expression value expected", eVal.Expr)
+	}
+}
+
+type Arg struct {
+	Name  string
+	Value Expr
+}
+
+func EvalArgs(e Evaluator, args []interface{}) ([]Arg, error) {
+	result := make([]Arg, 0, len(args))
+	for _, arg := range args {
+		argMap, ok := arg.(map[string]interface{})
+		if !ok {
+			return nil, BadTerm("invalid argument", nil)
+		}
+		nameVal, ok := argMap["name"]
+		if !ok {
+			return nil, BadTerm("invalid argument", nil)
+		}
+		name, err := EvalString(e, nameVal)
+		if err != nil {
+			return nil, err
+		}
+		valExpr, ok := argMap["value"]
+		if !ok {
+			return nil, BadTerm("invalid argument", nil)
+		}
+		eVal, err := e.EvalValue(valExpr)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, Arg{Name: name, Value: eVal.Expr})
+	}
+	return result, nil
 }
