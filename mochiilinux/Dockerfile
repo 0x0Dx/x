@@ -288,7 +288,7 @@ COPY --from=stage1-merge /skeleton /
 # Build dependencies
 # =============================================================================
 FROM alpine AS build-deps
-RUN apk add m4
+RUN apk update && apk add m4
 
 
 # =============================================================================
