@@ -2,6 +2,7 @@
 package builder
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/0x0Dx/x/mochii/internal/db"
+	"github.com/0x0Dx/x/mochii/internal/eval"
 	"github.com/0x0Dx/x/mochii/internal/hasher"
 	"github.com/0x0Dx/x/mochii/internal/helper"
 	"github.com/0x0Dx/x/mochii/internal/nar"
@@ -47,6 +49,7 @@ type Builder struct {
 	ValuesDir  string // Where values are stored
 	Store      *store.Store
 	Values     *values.Manager
+	Evaluator  *eval.Evaluator
 }
 
 // New creates a new Builder with the given directories.
@@ -63,6 +66,7 @@ func New(db *db.DB, sourcesDir, installDir, logDir string) *Builder {
 
 	b.Store = store.New(db, sourcesDir, installDir)
 	b.Values = values.New(db, valuesDir)
+	b.Evaluator = eval.New(db, valuesDir, logDir, sourcesDir)
 
 	return b
 }
@@ -138,11 +142,64 @@ func (b *Builder) Install(h hasher.Hash) (string, error) {
 		return path, nil
 	}
 
+	// Try to evaluate the derivation expression first
+	if result, err := b.evalDerivation(h); err == nil {
+		fmt.Printf("evaluated derivation: %s\n", result)
+		// If evaluation produced a path, use it
+		if result != "" {
+			return result, nil
+		}
+	}
+
+	// Fall back to traditional build
 	if err := b.install(h); err != nil {
 		return "", fmt.Errorf("install: %w", err)
 	}
 
 	return b.InstallDir + "/" + h.String(), nil
+}
+
+// evalDerivation tries to evaluate a derivation expression by hash.
+// Returns the result path if successful, or empty string if not a derivation.
+func (b *Builder) evalDerivation(h hasher.Hash) (string, error) {
+	// Try to load the expression from values directory
+	exprPath := filepath.Join(b.ValuesDir, fmt.Sprintf("%s.expr", h))
+	data, err := os.ReadFile(exprPath)
+	if err != nil {
+		return "", fmt.Errorf("read expression: %w", err)
+	}
+
+	var expr interface{}
+	if err := json.Unmarshal(data, &expr); err != nil {
+		return "", fmt.Errorf("parse expression: %w", err)
+	}
+
+	// Evaluate the expression
+	result, err := b.Evaluator.EvalValue(expr)
+	if err != nil {
+		return "", fmt.Errorf("evaluate: %w", err)
+	}
+
+	// Check if result is a path
+	switch x := result.Expr.(type) {
+	case string:
+		return x, nil
+	case eval.ExprExternal:
+		// External result - return the path from the hash
+		path, err := b.Values.QueryValuePath(x.Hash)
+		if err != nil {
+			return "", err
+		}
+		return path, nil
+	case eval.ExprHash:
+		path, err := b.Values.QueryValuePath(x.Hash)
+		if err != nil {
+			return "", err
+		}
+		return path, nil
+	default:
+		return "", fmt.Errorf("unexpected result type: %T", result.Expr)
+	}
 }
 
 // install performs the actual build process:
@@ -653,4 +710,35 @@ func (b *Builder) AddValue(path string) (hasher.Hash, error) {
 // QueryValuePath queries a value path by hash.
 func (b *Builder) QueryValuePath(hash hasher.Hash) (string, error) {
 	return b.Values.QueryValuePath(hash)
+}
+
+// RegisterDerivation registers a derivation expression.
+// The expression is stored and can be evaluated later to build the package.
+func (b *Builder) RegisterDerivation(expr interface{}) (hasher.Hash, error) {
+	// Serialize the expression
+	data, err := json.Marshal(expr)
+	if err != nil {
+		return "", fmt.Errorf("marshal expression: %w", err)
+	}
+
+	// Hash the expression
+	h := hasher.FromString(string(data))
+
+	// Store the expression
+	exprPath := filepath.Join(b.ValuesDir, fmt.Sprintf("%s.expr", h))
+	if _, err := os.Stat(exprPath); os.IsNotExist(err) {
+		if err := helper.EnsureDir(b.ValuesDir); err != nil {
+			return "", fmt.Errorf("ensure values dir: %w", err)
+		}
+		if err := os.WriteFile(exprPath, data, 0644); err != nil {
+			return "", fmt.Errorf("write expression: %w", err)
+		}
+	}
+
+	return h, nil
+}
+
+// AddDerivationValue adds a derived value (result of a build) to the store.
+func (b *Builder) AddDerivationValue(path string) (hasher.Hash, error) {
+	return b.Values.AddValue(path)
 }

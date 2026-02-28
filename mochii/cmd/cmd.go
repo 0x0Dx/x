@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -267,6 +268,53 @@ func (c *CLI) PushPrebuilts(exportDir string) error {
 	return nil
 }
 
+// RegisterDerivationFile registers a derivation expression from a file.
+func (c *CLI) RegisterDerivationFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+
+	var expr interface{}
+	if err := json.Unmarshal(data, &expr); err != nil {
+		return fmt.Errorf("parse expression: %w", err)
+	}
+
+	h, err := c.builder.RegisterDerivation(expr)
+	if err != nil {
+		return fmt.Errorf("register derivation: %w", err)
+	}
+
+	fmt.Println(h)
+	return nil
+}
+
+// EvalExpressionFile evaluates an expression from a file.
+func (c *CLI) EvalExpressionFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+
+	var expr interface{}
+	if err := json.Unmarshal(data, &expr); err != nil {
+		return fmt.Errorf("parse expression: %w", err)
+	}
+
+	result, err := c.builder.Evaluator.EvalValue(expr)
+	if err != nil {
+		return fmt.Errorf("evaluate: %w", err)
+	}
+
+	output, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal result: %w", err)
+	}
+
+	fmt.Println(string(output))
+	return nil
+}
+
 // PrintUsage prints the CLI usage message.
 func PrintUsage() {
 	fmt.Fprintf(os.Stderr, `Usage: mochii COMMAND [OPTIONS]...
@@ -280,6 +328,8 @@ Commands:
   run HASH [ARGS]       Run package
   regfile FILE          Register file by hash
   regurl HASH URL       Register URL for hash
+  regderivation FILE    Register derivation expression
+  eval FILE             Evaluate expression file
   fetch URL             Fetch URL and print hash
   profile               List profile generations
   switch HASH PATH      Switch to package in profile

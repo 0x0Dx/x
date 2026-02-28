@@ -147,6 +147,26 @@ func main() {
 			exitCode = 1
 		}
 
+	case "regderivation":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "error: missing file argument\n")
+			os.Exit(1)
+		}
+		if err := cli.RegisterDerivationFile(os.Args[2]); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			exitCode = 1
+		}
+
+	case "eval":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "error: missing expression file argument\n")
+			os.Exit(1)
+		}
+		if err := cli.EvalExpressionFile(os.Args[2]); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			exitCode = 1
+		}
+
 	case "-h", "--help", "help":
 		cmd.PrintUsage()
 
