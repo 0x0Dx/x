@@ -260,7 +260,39 @@ func (nr *Reader) Extract(dest string) error {
 			}
 			f.Close()
 			os.Chmod(absTarget, header.FileInfo().Mode())
-		case tar.TypeSymlink:
+
+			// Validate the symlink target so that it cannot escape absDest,
+			// taking into account any existing symlinks on disk.
+			linkTarget := header.Linkname
+			if linkTarget == "" {
+				return fmt.Errorf("empty symlink target for %q", header.Name)
+			}
+			if filepath.IsAbs(linkTarget) {
+				return fmt.Errorf("absolute symlink target %q for %q is not allowed", linkTarget, header.Name)
+			}
+
+			// Interpret the symlink target relative to the directory containing the symlink.
+			linkDir := filepath.Dir(absTarget)
+			candidatePath := filepath.Clean(filepath.Join(linkDir, linkTarget))
+
+			// Resolve any existing symlinks along the path.
+			resolvedTarget, err := filepath.EvalSymlinks(candidatePath)
+			if err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("resolve symlink target for %q: %w", header.Name, err)
+			}
+			if err == nil {
+				// Only enforce the prefix check when we could resolve the path.
+				checkPath := resolvedTarget
+				prefix := absDest
+				if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+					prefix += string(os.PathSeparator)
+				}
+				if resolvedTarget != absDest && !strings.HasPrefix(checkPath, prefix) {
+					return fmt.Errorf("symlink %q with target %q would resolve outside destination", header.Name, linkTarget)
+				}
+			}
+
+			if err := os.Symlink(linkTarget, absTarget); err != nil {
 			if err := os.MkdirAll(filepath.Dir(absTarget), 0755); err != nil {
 				return fmt.Errorf("mkdir for symlink: %w", err)
 			}
