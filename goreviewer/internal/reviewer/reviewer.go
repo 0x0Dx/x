@@ -499,9 +499,13 @@ func (r *Reviewer) doRequest(ctx context.Context, apiKey, baseURL, referer, mode
 }
 
 func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
+	if r.cfg.Debug {
+		fmt.Printf("DEBUG: API response body: %s\n", string(body))
+	}
+
 	var resp apiResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return errorResponse("Invalid JSON response from API"), fmt.Errorf("unmarshal response: %w", err)
+		return errorResponse(fmt.Sprintf("Invalid JSON response from API: %v", err)), fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if resp.Error.Message != "" {
