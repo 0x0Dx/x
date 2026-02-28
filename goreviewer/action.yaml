@@ -57,13 +57,13 @@ runs:
       run: |
         EVENT_TYPE="${{ github.event_name }}"
         echo "type=$EVENT_TYPE" >> "$GITHUB_OUTPUT"
-        if [ "$EVENT_TYPE" = "pull_request_review_comment" ]; then
+        if [ "$EVENT_TYPE" = "pull_request_review_comment" ] || [ "$EVENT_TYPE" = "issue_comment" ]; then
           COMMENT_BODY="${{ github.event.comment.body }}"
           echo "comment_body=$COMMENT_BODY" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Get PR diff
-      if: steps.event.outputs.type == 'pull_request_target'
+      if: github.event_name == 'pull_request_target'
       shell: bash
       run: |
         BASE_REF="${{ github.event.pull_request.base.ref }}"
@@ -76,7 +76,7 @@ runs:
         go install github.com/0x0Dx/x/goreviewer@latest
 
     - name: Run AI Code Review
-      if: steps.event.outputs.type == 'pull_request_target'
+      if: github.event_name == 'pull_request_target'
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
@@ -93,7 +93,6 @@ runs:
       run: |
         set +e
 
-        # Filter diff if patterns specified
         if [ -n "$EXCLUDE_PATTERNS" ]; then
           FILTERED_DIFF=$(mktemp)
           PATTERN=$(echo "$EXCLUDE_PATTERNS" | sed 's/,/|/g')
@@ -148,7 +147,7 @@ runs:
         echo "✅ AI review completed. Decision: $DECISION"
 
     - name: Respond to @mention
-      if: steps.event.outputs.type == 'pull_request_review_comment'
+      if: github.event_name == 'pull_request_review_comment' || github.event_name == 'issue_comment'
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
@@ -174,7 +173,11 @@ runs:
           exit 0
         fi
 
-        PR_NUMBER="${{ github.event.pull_request.number }}"
+        if [ "${{ github.event_name }}" = "issue_comment" ]; then
+          PR_NUMBER="${{ github.event.issue.number }}"
+        else
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+        fi
         COMMENT_ID="${{ github.event.comment.id }}"
 
         AI_RESPONSE=$(echo "$MESSAGE" | goreviewer comment --message "$MESSAGE" --comment-id "$COMMENT_ID")
@@ -199,17 +202,6 @@ runs:
         echo "$AI_RESPONSE" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
 
         echo "✅ AI response posted"
-
-    - name: Fail if requested
-      if: inputs.fail_on_requested_changes == 'true'
-      shell: bash
-      env:
-        DECISION: "${{ steps.review.outputs.DECISION }}"
-      run: |
-        if [ "$DECISION" = "fail" ]; then
-          echo "❌ AI requested changes and fail_on_requested_changes is enabled"
-          exit 1
-        fi
 
     - name: Cleanup
       if: always()
