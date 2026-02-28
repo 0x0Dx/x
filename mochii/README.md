@@ -208,6 +208,118 @@ Mochii is a Go port of Nix v0.1.0 (circa 2003), before it became 500k+ lines of 
 
 Without: sandboxing complexity, daemon setup, or the Nix expression language.
 
+## Architecture
+
+Mochii is organized into several internal packages:
+
+| Package | Purpose |
+|---------|---------|
+| `builder` | Package building and installation |
+| `db` | SQLite database operations |
+| `eval` | Expression evaluation for derivations |
+| `fetch` | Network source fetching |
+| `hasher` | SHA-256 content hashing |
+| `helper` | Utility functions |
+| `nar` | NAR (Nix ARchive) format support |
+| `prebuilts` | Binary substitute management |
+| `profile` | Profile generation management |
+| `store` | Nix store queries |
+| `values` | Value storage and retrieval |
+
+## Derivation Expressions
+
+Mochii supports derivation expressions that describe how to build packages:
+
+```nix
+{
+  name = "hello";
+  buildPlatform = "x86_64-linux";
+  builder = "/bin/bash";
+  args = ["-c", "echo $src > $out"];
+  env = {
+    src = "abcdef...";  # reference to a value
+  };
+}
+```
+
+### Expression Types
+
+- **Str("...")** - String literal
+- **True / False** - Boolean values
+- **Hash(...)** - Reference to a value by hash
+- **External(...)** - Reference to non-expression value
+- **Deref(...)** - Dereference an expression
+- **(lambda x . e)** - Lambda abstraction
+- **(e1 e2)** - Function application
+- **(exec platform prog [args])** - Execution primitive
+
+### Evaluating Expressions
+
+```go
+import "github.com/0x0Dx/x/mochii/internal/eval"
+
+evaluator := eval.New(db, valuesDir, logDir, sourcesDir)
+result, err := evaluator.EvalValue(expr)
+```
+
+## NAR Archive Format
+
+NAR (Nix ARchive) is a serialization format for directory trees. Mochii uses it for:
+
+- Hashing directories (content-addressed)
+- Creating archives of built packages
+- Extracting packages from archives
+
+```go
+import "github.com/0x0Dx/x/mochii/internal/nar"
+
+// Hash a directory
+hash, err := nar.Hash("/path/to/dir")
+
+// Create a NAR archive
+w := nar.NewWriter(file)
+w.WriteDir("/path/to/dir")
+
+// Extract a NAR archive
+r := nar.NewReader(file)
+r.Extract("/destination")
+```
+
+## Value Storage
+
+Values are content-addressed files stored in the values directory:
+
+```go
+import "github.com/0x0Dx/x/mochii/internal/values"
+
+mgr := values.New(db, valuesDir)
+
+// Add a value
+hash, err := mgr.AddValue("/path/to/file")
+
+// Query a value path
+path, err := mgr.QueryValuePath(hash)
+```
+
+## Store Queries
+
+The store provides queries similar to nix-store:
+
+```go
+import "github.com/0x0Dx/x/mochii/internal/store"
+
+s := store.New(db, sourcesDir, pkgDir)
+
+// Query store path
+path, err := s.QueryStore(hash)
+
+// Verify store integrity
+valid, err := s.VerifyStore(hash)
+
+// Query graveyard (deleted paths)
+paths, err := s.QueryGraveyard()
+```
+
 ## Bootstrapping
 
 To bootstrap mochii from source, you need to create a source package with a builder script.
