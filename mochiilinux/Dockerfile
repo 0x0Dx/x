@@ -197,7 +197,7 @@ RUN mkdir /sources && cd /sources && \
 
 RUN cd /sources && \
   mkdir -p /sysroot/usr/include && \
-  cd gcc-${GCC_VERSION} && mkdir -v build && cd build && ls -liah /gcc-${GCC_VERSION}/mpfr/src/ && \
+  cd gcc-${GCC_VERSION} && mkdir -v build && cd build && \
   ../configure \
     --prefix=/usr \
     --build=${BUILD_ARCH} \
@@ -252,3 +252,18 @@ RUN cd /sources && tar -xvf binutils-${BINUTILS_VERSION}.tar.xz && \
 # This is a hack to avoid to need the kernel headers to compile things like busybox
 FROM alpine AS alpine-hack
 RUN apk add linux-headers
+
+# Stage 1 - Assembling image from stage0 with build tools
+FROM stage0 AS stage1-merge
+
+RUN apk add rsync
+
+COPY --from=skeleton /sysroot /skeleton
+
+# GCC
+COPY --from=gcc-stage0 /sysroot /gcc
+RUN rsync -aHAX --keep-dirlinks /gcc/. /skeleton
+
+# MUSL
+COPY --from=musl-stage0 /sysroot /musl
+RUN rsync -aHAX --keep-dirlinks /musl/. /skeleton
