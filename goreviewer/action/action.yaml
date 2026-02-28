@@ -1,0 +1,160 @@
+name: "AI Code Reviewer"
+description: "AI-powered code reviewer using OpenRouter API"
+author: "0x0Dx"
+branding:
+  icon: "message-square"
+  color: "purple"
+
+inputs:
+  github_token:
+    description: "GitHub token for posting comments and labels"
+    required: true
+    default: "${{ github.token }}"
+  openrouter_api_key:
+    description: "OpenRouter API key for AI review"
+    required: true
+  model:
+    description: "AI model to use"
+    required: false
+    default: "minimax/minimax-m2.5"
+  temperature:
+    description: "Sampling temperature"
+    required: false
+    default: "0.1"
+  max_tokens:
+    description: "Maximum tokens in response"
+    required: false
+    default: "64000"
+  max_diff_size:
+    description: "Maximum diff size in bytes"
+    required: false
+    default: "800000"
+  exclude_patterns:
+    description: "File patterns to exclude (comma-separated)"
+    required: false
+    default: "*.lock,*.min.js,*.min.css,package-lock.json,yarn.lock"
+  fail_on_requested_changes:
+    description: "Fail workflow if AI requests changes"
+    required: false
+    default: "false"
+  debug_mode:
+    description: "Enable debug output"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Get PR diff
+      shell: bash
+      run: |
+        BASE_REF="${{ github.event.pull_request.base.ref }}"
+        git fetch origin "$BASE_REF"
+        git diff "origin/$BASE_REF"...HEAD --no-color > diff.txt
+
+    - name: Setup goreviewer
+      shell: bash
+      run: |
+        go install github.com/0x0Dx/x/goreviewer@latest
+
+    - name: Run AI Code Review
+      shell: bash
+      env:
+        GITHUB_TOKEN: "${{ inputs.github_token }}"
+        OPENROUTER_API_KEY: "${{ inputs.openrouter_api_key }}"
+        MODEL: "${{ inputs.model }}"
+        TEMPERATURE: "${{ inputs.temperature }}"
+        MAX_TOKENS: "${{ inputs.max_tokens }}"
+        MAX_DIFF_SIZE: "${{ inputs.max_diff_size }}"
+        EXCLUDE_PATTERNS: "${{ inputs.exclude_patterns }}"
+        PR_NUMBER: "${{ github.event.pull_request.number }}"
+        REPO_FULL_NAME: "${{ github.repository }}"
+        DEBUG_MODE: "${{ inputs.debug_mode }}"
+        FAIL_ON_REQUESTED_CHANGES: "${{ inputs.fail_on_requested_changes }}"
+      run: |
+        set +e
+
+        # Filter diff if patterns specified
+        if [ -n "$EXCLUDE_PATTERNS" ]; then
+          FILTERED_DIFF=$(mktemp)
+          # Create grep pattern from comma-separated list
+          PATTERN=$(echo "$EXCLUDE_PATTERNS" | sed 's/,/|/g')
+          grep -v -E "diff --git a/($PATTERN) " diff.txt > "$FILTERED_DIFF" 2>/dev/null || true
+          if [ -s "$FILTERED_DIFF" ]; then
+            cat "$FILTERED_DIFF" > diff.txt
+          fi
+          rm -f "$FILTERED_DIFF"
+        fi
+
+        # Run goreviewer
+        AI_RESPONSE=$(cat diff.txt | goreviewer review --model "$MODEL" --temperature "$TEMPERATURE" --max-tokens "$MAX_TOKENS")
+        EXIT_CODE=$?
+
+        if [ "$DEBUG_MODE" = "true" ]; then
+          echo "=== RAW AI RESPONSE ==="
+          echo "$AI_RESPONSE"
+          echo "=== EXIT CODE: $EXIT_CODE ==="
+        fi
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "❌ AI reviewer failed with exit code $EXIT_CODE"
+          echo "Response: $AI_RESPONSE"
+          echo "$AI_RESPONSE" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F - 2>/dev/null || true
+          exit 1
+        fi
+
+        if [ -z "$AI_RESPONSE" ]; then
+          echo "❌ AI response is empty"
+          exit 1
+        fi
+
+        # Validate JSON
+        if ! echo "$AI_RESPONSE" | jq . >/dev/null 2>&1; then
+          echo "⚠️ AI response is not valid JSON"
+          echo "AI response could not be processed" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F - 2>/dev/null || true
+          exit 1
+        fi
+
+        # Extract fields
+        REVIEW=$(echo "$AI_RESPONSE" | jq -r '.review // "No review provided"')
+        DECISION=$(echo "$AI_RESPONSE" | jq -r '.fail_pass_workflow // "uncertain"' | tr -d '\n\r' | xargs)
+
+        # Post review comment
+        echo "$REVIEW" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
+
+        # Add labels
+        for label in $(echo "$AI_RESPONSE" | jq -r '.labels_added[]? // empty' 2>/dev/null); do
+          if [ -n "$label" ]; then
+            gh label create "$label" --color "0366d6" --description "AI reviewer" 2>/dev/null || true
+            gh issue edit "$PR_NUMBER" --add-label "$label" 2>/dev/null || true
+          fi
+        done
+
+        # Store decision for next step
+        echo "DECISION=$DECISION" >> "$GITHUB_OUTPUT"
+
+        # Remove trigger label
+        gh issue edit "$PR_NUMBER" --remove-label "ai_code_review" 2>/dev/null || true
+
+        echo "✅ AI review completed. Decision: $DECISION"
+
+    - name: Fail if requested
+      if: inputs.fail_on_requested_changes == 'true'
+      shell: bash
+      env:
+        DECISION: "${{ steps.review.outputs.DECISION }}"
+      run: |
+        if [ "$DECISION" = "fail" ]; then
+          echo "❌ AI requested changes and fail_on_requested_changes is enabled"
+          exit 1
+        fi
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: rm -f diff.txt

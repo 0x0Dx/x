@@ -7,6 +7,7 @@ Monorepo containing tools.
 - [`cliimage`](./cliimage) Terminal image viewer.
 - [`goserv`](./goserv) HTTP file server.
 - [`gitx`](./gitx) Simple git wrapper.
+- [`goreviewer`](./goreviewer)
 
 ## Installation 
  
@@ -14,6 +15,7 @@ Monorepo containing tools.
 go install github.com/0x0Dx/x/cliimage@main
 go install github.com/0x0Dx/x/goserv@main
 go install github.com/0x0Dx/x/gitx@main
+go install github.com/0x0Dx/x/goreviewer@main
 ```
 
 ## Development
