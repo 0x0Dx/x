@@ -529,7 +529,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 	}
 
 	footer := fmt.Sprintf("\n\n---\n%s\n", reviewFooter)
-	if r.cfg.BotIcon != "" {
+	if r.cfg.BotIcon != "" && len(r.cfg.BotIcon) <= 50 {
 		footer = fmt.Sprintf("\n\n---\n%s %s\n", r.cfg.BotIcon, reviewFooter)
 	}
 	result.Review += footer

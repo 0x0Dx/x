@@ -181,7 +181,7 @@ func init() {
 	reviewCmd.Flags().StringVar(&systemMessage, "system-message", "", "System message")
 	reviewCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
 	reviewCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
-	reviewCmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon (emoji or HTML img)")
+	reviewCmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon (emoji)")
 	RootCmd.AddCommand(reviewCmd)
 
 	runCmd.Flags().IntVar(&prNumber, "pr", 0, "PR number")
