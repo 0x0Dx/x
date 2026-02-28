@@ -196,3 +196,54 @@ func init() {
 	runCmd.Flags().BoolVar(&disableReview, "disable-review", false, "Only provide summary")
 	RootCmd.AddCommand(runCmd)
 }
+
+var chatCmd = &cobra.Command{
+	Use:   "chat",
+	Short: "Chat with AI about code",
+	Long:  "Have a conversation with AI about code. Provide code via stdin or file, then ask questions.",
+	Args:  cobra.NoArgs,
+	RunE: func(_ *cobra.Command, _ []string) error {
+		codeContent, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+
+		cfg := reviewer.Config{
+			Model:       model,
+			Temperature: temperature,
+			MaxTokens:   maxTokens,
+			Debug:       verbose,
+
+			LightModel:    lightModel,
+			HeavyModel:    heavyModel,
+			SystemMessage: systemMessage,
+			Language:      language,
+			OpenAIBaseURL: openAIBaseURL,
+		}
+
+		r := reviewer.New(cfg, nil)
+
+		fmt.Print("Your question: ")
+		var question string
+		fmt.Scanln(&question)
+
+		resp, err := r.Chat(context.Background(), reviewer.ChatRequest{
+			CodeContext: string(codeContent),
+			Message:     question,
+		})
+		if err != nil {
+			return fmt.Errorf("chat failed: %w", err)
+		}
+
+		fmt.Println(resp)
+		return nil
+	},
+}
+
+func init() {
+	chatCmd.Flags().StringVar(&lightModel, "light-model", "", "Model for chat")
+	chatCmd.Flags().StringVar(&heavyModel, "heavy-model", "", "Model for chat")
+	chatCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
+	chatCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
+	RootCmd.AddCommand(chatCmd)
+}

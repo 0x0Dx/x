@@ -236,6 +236,98 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 	return r.parseSimpleResponse(body)
 }
 
+func (r *Reviewer) selectModel(isHeavy bool) string {
+	if isHeavy {
+		model := r.cfg.HeavyModel
+		if model == "" {
+			model = r.cfg.Model
+		}
+		if model == "" {
+			model = defaultModel
+		}
+		return model
+	}
+	model := r.cfg.LightModel
+	if model == "" {
+		model = defaultModel
+	}
+	return model
+}
+
+// ChatRequest represents a chat request.
+type ChatRequest struct {
+	CodeContext string
+	Message     string
+	FilePath    string
+	Line        int
+}
+
+// Chat responds to a chat message about code context.
+func (r *Reviewer) Chat(ctx context.Context, req ChatRequest) (string, error) {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	}
+	if apiKey == "" {
+		return "", errors.New("missing API key")
+	}
+
+	model := r.selectModel(true)
+
+	prompt := r.buildChatPrompt(req)
+
+	repoFull := os.Getenv("REPO_FULL_NAME")
+	referer := fmt.Sprintf("https://github.com/%s", repoFull)
+
+	baseURL := r.cfg.OpenAIBaseURL
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+
+	body, err := r.callAPI(ctx, apiKey, baseURL, referer, model, prompt)
+	if err != nil {
+		return "", err
+	}
+
+	return r.parseSimpleResponse(body)
+}
+
+func (r *Reviewer) buildChatPrompt(req ChatRequest) string {
+	var b strings.Builder
+
+	systemMsg := r.cfg.SystemMessage
+	if systemMsg == "" {
+		systemMsg = `You are @goreviewer, a helpful AI assistant for code reviews.`
+	}
+
+	lang := r.cfg.Language
+	if lang == "" {
+		lang = defaultLanguage
+	}
+	systemMsg += fmt.Sprintf("\n\nYour entire response must be in the language with ISO code: %s", lang)
+
+	b.WriteString(systemMsg)
+	b.WriteString("\n\n")
+
+	if req.FilePath != "" {
+		b.WriteString(fmt.Sprintf("The user is asking about file: **%s**\n", req.FilePath))
+		if req.Line > 0 {
+			b.WriteString(fmt.Sprintf("Specifically about line: **%d**\n", req.Line))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("Code context:\n\n")
+	b.WriteString("```\n")
+	b.WriteString(req.CodeContext)
+	b.WriteString("\n```\n\n")
+
+	b.WriteString(fmt.Sprintf("User's question: %s\n\n", req.Message))
+	b.WriteString("Please answer the user's question based on the provided code context. Be helpful and specific.")
+
+	return b.String()
+}
+
 func (r *Reviewer) buildReviewPrompt(diffContent string) string {
 	var b strings.Builder
 
