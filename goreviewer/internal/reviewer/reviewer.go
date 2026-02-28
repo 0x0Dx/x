@@ -505,7 +505,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 	}
 
 	if resp.Error.Message != "" {
-		return errorResponse(resp.Error.Message), errors.New(resp.Error.Message)
+		return errorResponse(fmt.Sprintf("API error: %s", resp.Error.Message)), errors.New(resp.Error.Message)
 	}
 
 	if len(resp.Choices) == 0 {
@@ -522,7 +522,11 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 
 	jsonMatch := extractJSON(content)
 	if jsonMatch == "" {
-		return errorResponse("No valid JSON found in response"), errors.New("no JSON in response")
+		truncated := content
+		if len(truncated) > 500 {
+			truncated = truncated[:500] + "..."
+		}
+		return errorResponse(fmt.Sprintf("No valid JSON found in response. Got: %s", truncated)), errors.New("no JSON in response")
 	}
 
 	var result ReviewResponse
