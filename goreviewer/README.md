@@ -1,6 +1,15 @@
 # goreviewer
 
-AI-powered code reviewer using OpenRouter API.
+AI-powered code reviewer using OpenAI-compatible APIs.
+
+## Features
+
+- **Code Review** - Analyzes security, performance, logic, and best practices
+- **Summarization** - Generates walkthrough, file change table, and celebration poem
+- **Release Notes** - Auto-generates release notes for PRs
+- **Label Suggestions** - AI suggests relevant labels (security, bug, enhancement, etc.)
+- **Review Comment Replies** - Responds to review comments conversationally
+- **Multi-language** - Supports any language for responses
 
 ## CLI Usage
 
@@ -10,134 +19,176 @@ AI-powered code reviewer using OpenRouter API.
 go install github.com/0x0Dx/x/goreviewer@latest
 ```
 
-### Basic Usage
+### Commands
 
-Review a diff from a file:
-```bash
-git diff HEAD~1 --no-color | goreviewer review
-```
-
-Or from a file:
-```bash
-cat diff.txt | goreviewer review
-```
-
-### Options
+#### `review` - Review a diff
 
 ```bash
 goreviewer review [flags]
-
-Flags:
-      --max-tokens int      Maximum tokens in response (default 64000)
-      --model string        AI model to use (default "minimax/minimax-m2.5")
-      --post                Post review as GitHub PR comment
-      --pr int             PR number
-      --repo string        Repository (owner/repo)
-      --temperature float  Sampling temperature (default 0.1)
-      --token string       GitHub token (or use GITHUB_TOKEN env var)
-  -v, --verbose           Enable verbose output
 ```
 
-### Environment Variables
+#### `run` - Full workflow (review + summarize + post to GitHub)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENROUTER_API_KEY` | Yes | Get from [openrouter.ai](https://openrouter.ai) |
-| `GITHUB_TOKEN` | For `--post` | GitHub token for posting comments |
-| `MODEL` | No | AI model (default: minimax/minimax-m2.5) |
-| `TEMPERATURE` | No | Sampling temperature (default: 0.1) |
+```bash
+goreviewer run [flags]
+```
+
+### CLI Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--post` | false | Post review as GitHub PR comment |
+| `--pr` | - | PR number |
+| `--repo` | - | Repository (owner/repo) |
+| `--light-model` | gpt-3.5-turbo | Model for summarization |
+| `--heavy-model` | gpt-4 | Model for code review |
+| `--openai-base-url` | https://api.openai.com/v1 | OpenAI-compatible API endpoint |
+| `--system-message` | - | Custom system prompt |
+| `--language` | en-US | Response language (ISO code) |
+| `--temperature` | 0.05 | Sampling temperature |
+| `--max-tokens` | 64000 | Max response tokens |
+| `--bot-icon` | - | Emoji icon for bot (e.g., 🐰) |
+| `--disable-review` | false | Skip code review, only summarize |
+| `--disable-release-notes` | false | Skip release notes generation |
+| `--token` | - | GitHub token (or use GITHUB_TOKEN env) |
+| `-v, --verbose` | false | Enable debug output |
 
 ### Examples
 
 Basic review:
 ```bash
-export OPENROUTER_API_KEY=your-key-here
+export OPENAI_API_KEY=sk-...
 git diff | goreviewer review
 ```
 
 Post to GitHub PR:
 ```bash
-export OPENROUTER_API_KEY=your-key-here
-export GITHUB_TOKEN=ghp_xxx
+export OPENAI_API_KEY=sk-...
+export GITHUB_TOKEN=ghp_...
 
 git diff | goreviewer review --post --pr 123 --repo owner/repo
 ```
 
-Use different model:
+Use OpenRouter with custom model:
 ```bash
-git diff | goreviewer review --model anthropic/claude-3.5-sonnet
+export OPENROUTER_API_KEY=sk-or-...
+git diff | goreviewer review \
+  --openai-base-url https://openrouter.ai/api/v1 \
+  --heavy-model anthropic/claude-3.5-sonnet
+```
+
+Summarize only (no review):
+```bash
+git diff | goreviewer review --disable-review
 ```
 
 ---
 
 ## GitHub Action
 
-An AI code reviewer action for GitHub workflows.
+Automated code review for every PR.
 
 ### Quick Start
+
+Create `.github/workflows/goreviewer.yml`:
 
 ```yaml
 name: GoReviewer
 
 on:
-  pull_request:
-    types: [labeled]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.event.number }}-${{ github.workflow }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
 
 jobs:
   goreviewer:
-    name: GoReviewer
     runs-on: ubuntu-latest
-    if: github.event.action == 'labeled' && github.event.label.name == 'ai_code_review'
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
     steps:
-      - name: AI Code Review
-        uses: 0x0Dx/x/goreviewer@main
+      - uses: actions/checkout@v4
+      - uses: 0x0Dx/x/goreviewer@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
 ```
+
+### Triggers
+
+| Event | Description |
+|-------|-------------|
+| `pull_request_target` (opened, synchronize, reopened) | Runs on new/revised PRs |
+| `pull_request_review_comment` (created) | Runs when AI receives a review comment |
 
 ### Configuration
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `github_token` | Yes | `github.token` | GitHub token |
-| `openrouter_api_key` | Yes | - | OpenRouter API key |
-| `model` | No | `minimax/minimax-m2.5` | AI model |
-| `temperature` | No | `0.1` | Sampling temperature |
-| `max_tokens` | No | `64000` | Max response tokens |
-| `max_diff_size` | No | `800000` | Max diff size (bytes) |
-| `exclude_patterns` | No | `*.lock,*.min.js,*.min.css,package-lock.json,yarn.lock` | Files to skip |
-| `fail_on_requested_changes` | No | `false` | Fail workflow if AI rejects |
-| `debug_mode` | No | `false` | Debug output |
+| `github_token` | Yes | github.token | GitHub token |
+| `openai_api_key` | Yes* | - | OpenAI API key |
+| `openai_base_url` | No | https://api.openai.com/v1 | OpenAI-compatible API |
+| `openai_light_model` | No | gpt-3.5-turbo | Model for summarization |
+| `openai_heavy_model` | No | gpt-4 | Model for code review |
+| `openai_model_temperature` | No | 0.05 | Sampling temperature |
+| `openai_timeout_ms` | No | 360000 | API timeout (ms) |
+| `openai_retries` | No | 5 | Retry attempts |
+| `openai_concurrency_limit` | No | 6 | Concurrent API calls |
+| `github_concurrency_limit` | No | 6 | Concurrent GitHub API calls |
+| `max_files` | No | 150 | Max files to review |
+| `language` | No | en-US | Response language (ISO code) |
+| `system_message` | No | - | Custom system prompt |
+| `summarize` | No | - | Custom summarize prompt |
+| `summarize_release_notes` | No | - | Custom release notes prompt |
+| `disable_review` | No | false | Skip code review |
+| `disable_release_notes` | No | false | Skip release notes |
+| `review_simple_changes` | No | false | Review even simple changes |
+| `review_comment_lgtm` | No | false | Comment on LGTM reviews |
+| `path_filters` | No | - | Files to include/exclude |
+| `bot_icon` | No | - | Emoji icon (e.g., 🐰) |
+| `fail_on_requested_changes` | No | false | Fail workflow if AI rejects |
+| `debug` | No | false | Enable debug output |
 
 ### How It Works
 
-1. Add `ai_code_review` label to a PR
-2. Action fetches diff and sends to OpenRouter
-3. AI reviews code (security, performance, quality)
-4. Review posted as PR comment
-5. Suggested labels added
-6. Trigger label removed for re-triggering
+1. **Trigger** - Runs automatically on PR events (no label needed!)
+2. **Fetch** - Gets diff between base and head branch
+3. **Review** - Sends diff to AI for code review
+4. **Summarize** - Generates walkthrough + file changes + poem
+5. **Release Notes** - Creates release notes (optional)
+6. **Post** - Comments on PR with review + summary
+7. **Labels** - Adds suggested labels (security, bug, etc.)
 
-### Secrets
-
-- `OPENROUTER_API_KEY` - Get from [openrouter.ai](https://openrouter.ai)
-
-### Example with Options
+### Example: Using OpenRouter
 
 ```yaml
-- name: GoReviewer
-  uses: 0x0Dx/x/goreviewer@main
+- uses: 0x0Dx/x/goreviewer@main
   with:
     github_token: ${{ secrets.GITHUB_TOKEN }}
-    openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
-    model: anthropic/claude-3.5-sonnet
-    temperature: 0.1
-    max_tokens: 64000
+    openai_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+    openai_base_url: https://openrouter.ai/api/v1
+    openai_light_model: arcee-ai/trinity-mini:free
+    openai_heavy_model: arcee-ai/trinity-large-preview:free
+    debug: true
+```
+
+### Example: Custom Prompts
+
+```yaml
+- uses: 0x0Dx/x/goreviewer@main
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+    system_message: |
+      You are a senior software engineer reviewing code for a fintech app.
+      Focus on security, compliance, and error handling.
+    language: en-US
     fail_on_requested_changes: true
 ```
 
@@ -145,12 +196,23 @@ jobs:
 
 ## Supported Models
 
-Popular models on OpenRouter:
+### OpenAI
 
-- `minimax/minimax-m2.5` (default, fast)
+- `gpt-4o` (recommended for reviews)
+- `gpt-4`
+- `gpt-3.5-turbo` (fast, for summarization)
+
+### OpenRouter
+
+Any OpenAI-compatible model:
+
 - `anthropic/claude-3.5-sonnet`
-- `openai/gpt-4o`
 - `google/gemini-pro-1.5`
 - `meta-llama/llama-3.1-405b-instruct`
+- `minimax/minimax-m2.5`
+- `arcee-ai/trinity-mini:free`
+- `arcee-ai/trinity-large-preview:free`
 
 See [openrouter.ai/models](https://openrouter.ai/models) for full list.
+
+---

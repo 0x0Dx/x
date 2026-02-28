@@ -237,7 +237,7 @@ inputs:
   bot_icon:
     required: false
     description: "The icon for the bot"
-    default: ""
+    default: '<img src="https://avatars.githubusercontent.com/u/126201299?s=41" alt="Image description" width="20" height="20">'
   fail_on_requested_changes:
     required: false
     description: "Fail workflow if AI requests changes"
