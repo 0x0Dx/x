@@ -289,3 +289,28 @@ COPY --from=alpine-hack /usr/include/asm-generic /asm-generic
 RUN mkdir -p /skeleton/usr/include/asm-generic && rsync -aHAX --keep-dirlinks /asm-generic/. /skeleton/usr/include/asm-generic
 COPY --from=alpine-hack /usr/include/mtd /mtd
 RUN mkdir -p /skeleton/usr/include/mtd && rsync -aHAX --keep-dirlinks /mtd/. /skeleton/usr/include/mtd
+
+FROM scratch AS stage1
+
+ARG VENDOR="mochii"
+ARG ARCH="x86-64"
+ARG BUILD_ARCH="x86_64"
+ENV VENDOR=${VENDOR}
+ENV ARCH=${ARCH}
+ENV BUILD_ARCH=${BUILD_ARCH}
+ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
+ENV BUILD=${BUILD_ARCH}-pc-linux-musl
+ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
+
+COPY --from=stage1-merge /skeleton /
+
+# This environment now should be vannila, ready to build the rest of the system
+FROM stage1 AS test1
+
+RUN ls -laih /
+RUN gcc --version
+RUN make --version
+
+COPY ./tests/gcc/test.c test.c
+RUN gcc -Wall test.c -o test
+RUN ./test
