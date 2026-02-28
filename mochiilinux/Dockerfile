@@ -450,3 +450,17 @@ RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/autoconf/aut
   make DESTDIR=/autoconf && \
   make DESTDIR=/autoconf install && \
   make install
+
+# Automake
+FROM stage1 AS automake
+
+ENV AUTOMAKE_VERSION=1.16.5
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/automake/automake-${AUTOMAKE_VERSION}.tar.xz && \
+  tar -xvf automake-${AUTOMAKE_VERSION}.tar.xz && \
+  cd automake-${AUTOMAKE_VERSION} && \
+  mkdir -p /autoconf && \
+  ./configure ${COMMON_ARGS} && \
+  make DESTDIR=/autoconf && \
+  make DESTDIR=/autoconf install && \
+  make install
