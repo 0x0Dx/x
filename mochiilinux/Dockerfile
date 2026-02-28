@@ -267,3 +267,25 @@ RUN rsync -aHAX --keep-dirlinks /gcc/. /skeleton
 # MUSL
 COPY --from=musl-stage0 /sysroot /musl
 RUN rsync -aHAX --keep-dirlinks /musl/. /skeleton
+
+# Busybox
+COPY --from=busybox-stage0 /sysroot /busybox
+RUN rsync -aHAX --keep-dirlinks /busybox/. /skeleton
+
+# Make
+COPY --from=make-stage0 /sysroot /make
+RUN rsync -aHAX --keep-dirlinks /make/. /skeleton
+
+# Binutils
+COPY --from=binutils-stage0 /sysroot /binutils
+RUN rsync -aHAX --keep-dirlinks /binutils/. /skeleton
+
+# This is a hack to avoid to need the kernel headers to compile things like busybox
+COPY --from=alpine-hack /usr/include/linux /linux
+RUN mkdir -p /skeleton/usr/include/linux && rsync -aHAX --keep-dirlinks /linux/. /skeleton/usr/include/linux
+COPY --from=alpine-hack /usr/include/asm /asm
+RUN mkdir -p /skeleton/usr/include/asm && rsync -aHAX --keep-dirlinks /asm/. /skeleton/usr/include/asm
+COPY --from=alpine-hack /usr/include/asm-generic /asm-generic
+RUN mkdir -p /skeleton/usr/include/asm-generic && rsync -aHAX --keep-dirlinks /asm-generic/. /skeleton/usr/include/asm-generic
+COPY --from=alpine-hack /usr/include/mtd /mtd
+RUN mkdir -p /skeleton/usr/include/mtd && rsync -aHAX --keep-dirlinks /mtd/. /skeleton/usr/include/mtd
