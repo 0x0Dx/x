@@ -5,6 +5,92 @@ branding:
   color: "purple"
 author: "0x0Dx"
 
+inputs:
+  github_token:
+    required: false
+    description: "GitHub token for posting comments"
+    default: "${{ github.token }}"
+  openai_api_key:
+    required: true
+    description: "OpenAI API key"
+    default: ""
+  debug:
+    required: false
+    description: "Enable debug mode"
+    default: "false"
+  max_files:
+    required: false
+    description: "Max files to summarize and review"
+    default: "150"
+  review_simple_changes:
+    required: false
+    description: "Review even when changes are simple"
+    default: "false"
+  review_comment_lgtm:
+    required: false
+    description: "Leave comments on LGTM reviews"
+    default: "false"
+  path_filters:
+    required: false
+    description: "Path filters for files to review"
+    default: ""
+  disable_review:
+    required: false
+    description: "Only provide summary"
+    default: "false"
+  disable_release_notes:
+    required: false
+    description: "Disable release notes"
+    default: "false"
+  openai_base_url:
+    required: false
+    description: "OpenAI API base URL"
+    default: "https://api.openai.com/v1"
+  openai_light_model:
+    required: false
+    description: "Model for light tasks"
+    default: "gpt-3.5-turbo"
+  openai_heavy_model:
+    required: false
+    description: "Model for heavy tasks"
+    default: "gpt-4"
+  openai_model_temperature:
+    required: false
+    description: "Temperature for model"
+    default: "0.05"
+  openai_retries:
+    required: false
+    description: "Number of retries"
+    default: "5"
+  openai_timeout_ms:
+    required: false
+    description: "Timeout in milliseconds"
+    default: "360000"
+  system_message:
+    required: false
+    description: "Custom system message"
+    default: ""
+  summarize:
+    required: false
+    description: "Summarize prompt"
+    default: ""
+  summarize_release_notes:
+    required: false
+    description: "Release notes prompt"
+    default: ""
+  language:
+    required: false
+    description: "Response language"
+    default: "en-US"
+  bot_icon:
+    required: false
+    description: "Bot icon (emoji or <img> tag)"
+    default: ""
+  fail_on_requested_changes:
+    required: false
+    description: "Fail workflow if AI requests changes"
+    default: "false"
+
 runs:
   using: composite
   steps:
