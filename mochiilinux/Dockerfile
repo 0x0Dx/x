@@ -19,13 +19,17 @@
 # =============================================================================
 
 # =============================================================================
-# Arguments and Environment
+# Stage 0: Base image with cross-compiler toolchain
 # =============================================================================
+FROM alpine AS stage0
+
+# Build arguments
 ARG VENDOR="mochii"
 ARG ARCH="x86-64"
 ARG BUILD_ARCH="x86_64"
 ARG JOBS=16
 
+# Environment variables
 ENV VENDOR=${VENDOR}
 ENV ARCH=${ARCH}
 ENV BUILD_ARCH=${BUILD_ARCH}
@@ -34,12 +38,6 @@ ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
 ENV LC_ALL=POSIX
-
-
-# =============================================================================
-# Stage 0: Base image with cross-compiler toolchain
-# =============================================================================
-FROM alpine AS stage0
 
 RUN apk update && apk add \
     git \
@@ -65,10 +63,8 @@ ENV PATH=/mussel/toolchain/bin:$PATH
 # =============================================================================
 FROM stage0 AS sources
 
-# Create directory structure
 RUN mkdir -p /sources/{downloads,build}
 
-# Version variables
 ENV CURL_VERSION=8.5.0
 ENV RSYNC_VERSION=3.4.1
 ENV XXHASH_VERSION=0.8.3
@@ -89,11 +85,9 @@ ENV OPENSSL_VERSION=3.5.2
 ENV PKGCONFIG_VERSION=1.8.1
 ENV OE_CORE_VERSION=bed605e7cd095f210e24f1e07dab6f814d0bbb59
 
-# Download all sources in parallel batches
 WORKDIR /sources/downloads
 
 RUN apk add git patch && \
-    # Core packages
     wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz & \
     wget -q https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz & \
     wget -q https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxHash-${XXHASH_VERSION}.tar.gz & \
@@ -116,7 +110,6 @@ RUN \
     wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz & \
     wait
 
-# Prepare systemd with patches
 RUN tar -xzf systemd-${SYSTEMD_VERSION}.tar.gz && \
     mv systemd-${SYSTEMD_VERSION} systemd && \
     git clone https://github.com/openembedded/openembedded-core /oe-core && \
@@ -137,10 +130,9 @@ RUN chmod +x /setup_rootfs.sh && SYSROOT=/sysroot /setup_rootfs.sh
 
 
 # =============================================================================
-# Stage 0: Cross-compiled packages (for stage1)
+# Stage 0: Cross-compiled packages
 # =============================================================================
 
-# Busybox - Embedded Linux Swiss Army knife
 FROM stage0 AS busybox-stage0
 
 ENV BUSYBOX_VERSION=1.37.0
@@ -164,7 +156,6 @@ RUN cd busybox-${BUSYBOX_VERSION} && \
     make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/sysroot" install
 
 
-# Musl - Lightweight C library
 FROM stage0 AS musl-stage0
 
 ENV MUSL_VERSION=1.2.5
@@ -178,7 +169,6 @@ RUN cd musl-${MUSL_VERSION} && \
     DESTDIR=/sysroot make -j${JOBS} install
 
 
-# GCC - GNU Compiler Collection
 FROM stage0 AS gcc-stage0
 
 ENV GCC_VERSION=14.3.0
@@ -218,7 +208,6 @@ RUN mkdir -p /sysroot/usr/include && \
     make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/sysroot install
 
 
-# GNU Make
 FROM stage0 AS make-stage0
 
 ENV MAKE_VERSION=4.4.1
@@ -232,7 +221,6 @@ RUN cd make-${MAKE_VERSION} && \
     make -j${JOBS} DESTDIR=/sysroot install
 
 
-# Binutils
 FROM stage0 AS binutils-stage0
 
 ENV BINUTILS_VERSION=2.44
@@ -254,7 +242,6 @@ RUN cd binutils-${BINUTILS_VERSION} && \
     make DESTDIR=/sysroot install
 
 
-# Kernel headers
 FROM alpine AS alpine-headers
 RUN apk add linux-headers
 
@@ -279,7 +266,6 @@ RUN rsync -aHAX --keep-dirlinks /gcc/. /skeleton && \
     rsync -aHAX --keep-dirlinks /make/. /skeleton && \
     rsync -aHAX --keep-dirlinks /binutils/. /skeleton
 
-# Kernel headers
 COPY --from=alpine-headers /usr/include/linux /linux
 COPY --from=alpine-headers /usr/include/asm /asm
 COPY --from=alpine-headers /usr/include/asm-generic /asm-generic
@@ -300,14 +286,14 @@ COPY --from=stage1-merge /skeleton /
 
 
 # =============================================================================
-# Build dependencies (for autotools)
+# Build dependencies
 # =============================================================================
 FROM alpine AS build-deps
 RUN apk add m4
 
 
 # =============================================================================
-# Test Stage 1: Verify cross-compiler works
+# Test Stage 1
 # =============================================================================
 FROM stage1 AS test1
 
@@ -318,10 +304,9 @@ RUN gcc --version && make --version && \
 
 
 # =============================================================================
-# Stage 1.x: Native packages for final image
+# Stage 1.x: Native packages
 # =============================================================================
 
-# Musl (native build)
 FROM stage1 AS musl
 
 ENV MUSL_VERSION=1.2.5
@@ -335,7 +320,6 @@ RUN cd musl-${MUSL_VERSION} && \
     DESTDIR=/sysroot make -j${JOBS} install
 
 
-# Pkgconfig
 FROM stage1 AS pkgconfig
 
 ENV PKGCONFIG_VERSION=1.8.1
@@ -356,7 +340,6 @@ RUN tar -xf /sources/pkgconf-${PKGCONFIG_VERSION}.tar.xz && \
     ln -s pkgconf /pkgconfig/usr/bin/pkg-config
 
 
-# Autoconf
 FROM build-deps AS autoconf
 
 COPY --from=stage1-merge /skeleton /
@@ -372,7 +355,6 @@ RUN cd autoconf-${AUTOCONF_VERSION} && \
     make DESTDIR=/autoconf install
 
 
-# Automake
 FROM build-deps AS automake
 
 COPY --from=stage1-merge /skeleton /
@@ -388,7 +370,6 @@ RUN cd automake-${AUTOMAKE_VERSION} && \
     make DESTDIR=/automake install
 
 
-# XXHash
 FROM stage1 AS xxhash
 
 ENV XXHASH_VERSION=0.8.3
@@ -401,7 +382,6 @@ RUN tar -xzf /sources/xxHash-${XXHASH_VERSION}.tar.gz && \
     make DESTDIR=/xxhash install
 
 
-# Zstd
 FROM xxhash AS zstd
 
 ENV ZSTD_VERSION=1.5.7
@@ -414,7 +394,6 @@ RUN tar -xzf /sources/zstd-${ZSTD_VERSION}.tar.gz && \
     make DESTDIR=/zstd install
 
 
-# LZ4
 FROM zstd AS lz4
 
 ENV LZ4_VERSION=1.10.0
@@ -427,7 +406,6 @@ RUN tar -xzf /sources/lz4-${LZ4_VERSION}.tar.gz && \
     make DESTDIR=/lz4 install
 
 
-# Attr
 FROM lz4 AS attr
 
 ENV ATTR_VERSION=2.5.2
@@ -449,7 +427,6 @@ RUN tar -xzf /sources/attr-${ATTR_VERSION}.tar.gz && \
     make DESTDIR=/attr install
 
 
-# ACL
 FROM attr AS acl
 
 ENV ACL_VERSION=2.3.2
@@ -466,7 +443,6 @@ RUN tar -xzf /sources/acl-${ACL_VERSION}.tar.gz && \
     make DESTDIR=/acl install
 
 
-# Popt
 FROM acl AS popt
 
 ENV POPT_VERSION=1.19
@@ -480,7 +456,6 @@ RUN cd popt-${POPT_VERSION} && \
     make DESTDIR=/popt install
 
 
-# Zlib
 FROM popt AS zlib
 
 ENV ZLIB_VERSION=1.3.1
@@ -494,7 +469,6 @@ RUN tar -xzf /sources/zlib-${ZLIB_VERSION}.tar.gz && \
     make DESTDIR=/zlib install
 
 
-# Gawk
 FROM zlib AS gawk
 
 ENV GAWK_VERSION=5.3.2
@@ -514,7 +488,6 @@ RUN tar -xf /sources/gawk-${GAWK_VERSION}.tar.xz && \
     make DESTDIR=/gawk install
 
 
-# Rsync
 FROM gawk AS rsync
 
 ENV RSYNC_VERSION=3.4.1
@@ -541,7 +514,6 @@ RUN tar -xzf /sources/rsync-${RSYNC_VERSION}.tar.gz && \
     make DESTDIR=/rsync install
 
 
-# Binutils
 FROM stage1 AS binutils
 
 ENV BINUTILS_VERSION=2.44
@@ -555,7 +527,6 @@ RUN cd binutils-${BINUTILS_VERSION} && \
     make DESTDIR=/binutils install
 
 
-# Ncurses
 FROM stage1 AS ncurses
 
 ENV NCURSES_VERSION=6.5
@@ -582,7 +553,6 @@ RUN cd ncurses-${NCURSES_VERSION} && \
     echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so
 
 
-# M4
 FROM stage1 AS m4
 
 ENV M4_VERSION=1.4.20
@@ -596,7 +566,6 @@ RUN cd m4-${M4_VERSION} && \
     make DESTDIR=/m4 install
 
 
-# Readline
 FROM stage1 AS readline
 
 ENV READLINE_VERSION=8.3
@@ -610,7 +579,6 @@ RUN cd readline-${READLINE_VERSION} && \
     make DESTDIR=/readline install
 
 
-# Bash
 FROM readline AS bash
 
 ENV BASH_VERSION=5.3
@@ -638,8 +606,9 @@ RUN cd bash-${BASH_VERSION} && \
     make DESTDIR=/bash install
 
 
-# Perl
 FROM m4 AS perl
+
+ARG BUILD_EMAIL="builder@localhost"
 
 ENV PERL_VERSION=5.42.0
 
@@ -667,7 +636,7 @@ RUN cd perl-${PERL_VERSION} && \
         -Dman1dir=/usr/share/man/man1 \
         -Dman3dir=/usr/share/man/man3 \
         -Dcf_by=mochiilinux \
-        -Dcf_email=mochiilinux@example.com \
+        -Dcf_email=${BUILD_EMAIL} \
         -Ud_csh \
         -Ud_fpos64_t \
         -Ud_off64_t \
@@ -678,7 +647,6 @@ RUN cd perl-${PERL_VERSION} && \
     make DESTDIR=/perl install
 
 
-# OpenSSL
 FROM rsync AS openssl
 
 ENV OPENSSL_VERSION=3.5.2
@@ -698,7 +666,6 @@ RUN tar -xzf /sources/openssl-${OPENSSL_VERSION}.tar.gz && \
     make DESTDIR=/openssl install
 
 
-# Busybox (final)
 FROM openssl AS busybox
 
 COPY --from=busybox-stage0 /sources /sources
@@ -722,7 +689,6 @@ RUN tar -xjf /sources/busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     make CONFIG_PREFIX=/sysroot install
 
 
-# Coreutils
 FROM rsync AS coreutils
 
 ENV COREUTILS_VERSION=9.4
@@ -749,7 +715,6 @@ RUN cd coreutils-${COREUTILS_VERSION} && \
     make DESTDIR=/coreutils install
 
 
-# Findutils
 FROM stage1 AS findutils
 
 ENV FINDUTILS_VERSION=4.10.0
@@ -763,7 +728,6 @@ RUN cd findutils-${FINDUTILS_VERSION} && \
     make DESTDIR=/findutils install
 
 
-# Grep
 FROM stage1 AS grep
 
 ENV GREP_VERSION=3.12
@@ -777,7 +741,6 @@ RUN cd grep-${GREP_VERSION} && \
     make DESTDIR=/grep install
 
 
-# CA Certificates
 FROM rsync AS ca-certificates
 
 ENV CA_CERTIFICATES_VERSION=20250619
@@ -809,7 +772,6 @@ COPY mochiilinux/files/ca-certificates/post_install.sh /post_install.sh
 RUN bash /post_install.sh
 
 
-# SQLite3
 FROM rsync AS sqlite3
 
 ENV SQLITE3_VERSION=3500400
@@ -833,7 +795,6 @@ RUN tar -xzf /sources/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz && \
     make DESTDIR=/sqlite3 install
 
 
-# Util-linux
 FROM bash AS util-linux
 
 ENV UTIL_LINUX_VERSION=2.41.1
@@ -858,7 +819,6 @@ RUN cd util-linux-${UTIL_LINUX_VERSION} && \
     make DESTDIR=/util-linux install
 
 
-# Curl
 FROM rsync AS curl
 
 ENV CURL_VERSION=8.5.0
@@ -894,7 +854,6 @@ RUN tar -xzf /sources/curl-${CURL_VERSION}.tar.gz && \
     make DESTDIR=/curl install
 
 
-# Python
 FROM rsync AS python
 
 ENV PYTHON_VERSION=3.12.11
@@ -928,7 +887,6 @@ RUN cd Python-${PYTHON_VERSION} && \
     make DESTDIR=/python install
 
 
-# Libcap
 FROM bash AS libcap
 
 ENV LIBCAP_VERSION=2.76
@@ -941,7 +899,6 @@ RUN tar -xf /sources/libcap-${LIBCAP_VERSION}.tar.xz && \
     make DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib GOLANG=no install
 
 
-# Gperf
 FROM stage1 AS gperf
 
 ENV GPERF_VERSION=3.3
@@ -955,7 +912,6 @@ RUN cd gperf-${GPERF_VERSION} && \
     make DESTDIR=/gperf install
 
 
-# Systemd
 FROM rsync AS systemd
 
 ENV SYSTEMD_VERSION=257.6
@@ -1020,7 +976,7 @@ RUN cd /sources/systemd && \
 
 
 # =============================================================================
-# Stage 2 Merge: Assemble final rootfs
+# Stage 2 Merge: Final rootfs
 # =============================================================================
 FROM stage0 AS stage2-merge
 
@@ -1028,7 +984,6 @@ RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 
-# Merge all packages
 COPY --from=musl /sysroot /musl
 COPY --from=coreutils /coreutils /coreutils
 COPY --from=curl /curl /curl
@@ -1063,7 +1018,6 @@ RUN rsync -aHAX --keep-dirlinks /musl/. /skeleton && \
     rsync -aHAX --keep-dirlinks /util-linux/. /skeleton && \
     rsync -aHAX --keep-dirlinks /systemd/. /skeleton
 
-# Cleanup headers
 RUN rm -rf /skeleton/usr/include
 
 
@@ -1075,7 +1029,7 @@ COPY --from=stage2-merge /skeleton /
 
 
 # =============================================================================
-# Test Stage 2: Verify final image
+# Test Stage 2
 # =============================================================================
 FROM stage2 AS test2
 
