@@ -252,12 +252,20 @@ runs:
         fetch-depth: 0
 
     - name: Get PR diff
+      id: get_diff
       shell: bash
       run: |
         BASE_REF="${{ github.event.pull_request.base.ref }}"
         HEAD_REF="${{ github.event.pull_request.head.ref }}"
         git fetch origin "$BASE_REF" "$HEAD_REF"
         git diff "origin/$BASE_REF".."origin/$HEAD_REF" --no-color > diff.txt
+        
+        # Check if diff is empty
+        if [ ! -s diff.txt ]; then
+          echo "DIFF_EMPTY=true" >> $GITHUB_OUTPUT
+        else
+          echo "DIFF_EMPTY=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Check for /goreviewer command
       id: check_mention
@@ -286,7 +294,7 @@ runs:
         fi
 
     - name: Run goreviewer
-      if: steps.check_mention.outputs.MENTIONED == 'false'
+      if: steps.check_mention.outputs.MENTIONED == 'false' && steps.get_diff.outputs.DIFF_EMPTY == 'false'
       shell: bash
       env:
         GITHUB_TOKEN: "${{ inputs.github_token }}"
@@ -298,6 +306,10 @@ runs:
         cd goreviewer
         go build -o goreviewer .
         ./goreviewer run --pr "$PR_NUMBER" --repo "$REPO_FULL_NAME" --light-model "${{ inputs.openai_light_model }}" --heavy-model "${{ inputs.openai_heavy_model }}" --system-message '${{ inputs.system_message }}' --language "${{ inputs.language }}" --openai-base-url "${{ inputs.openai_base_url }}" --bot-icon '${{ inputs.bot_icon }}' < ../diff.txt
+
+    - name: Skip - no changes
+      if: steps.check_mention.outputs.MENTIONED == 'false' && steps.get_diff.outputs.DIFF_EMPTY == 'true'
+      run: echo "No code changes to review"
 
     - name: Respond to command
       if: steps.check_mention.outputs.MENTIONED == 'true'
