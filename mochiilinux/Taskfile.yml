@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+vars:
+  MUSL_CORE_MAKE_VERSION: 6f3701d08137496d5aac479e3a3977b5ae993c1f
+  IMAGE_NAME: mochiilinux
+
+tasks:
+  build:
+    desc: Build the docker container
+    cmds:
+      - docker build --progress=plain --build-arg MUSL_CORE_MAKE_VERSION={{.MUSL_CORE_MAKE_VERSION}} -t {{.IMAGE_NAME}} .
+  
+  run:
+    desc: Run the docker container
+    cmds:
+      - docker run -it {{.IMAGE_NAME}}
+
+  clean:
+    desc: Remove the docker container
+    cmds:
+      - docker rmi {{.IMAGE_NAME}}
