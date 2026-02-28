@@ -27,7 +27,6 @@ jobs:
       - uses: ./goreviewer/
         with:
           debug: true
-          review_comment_lgtm: false
           openai_base_url: https://openrouter.ai/api/v1
           openai_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           openai_light_model: arcee-ai/trinity-mini:free

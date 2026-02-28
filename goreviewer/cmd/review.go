@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 	"github.com/0x0Dx/x/goreviewer/internal/reviewer"
@@ -39,7 +40,6 @@ var reviewCmd = &cobra.Command{
 		}
 
 		cfg := reviewer.Config{
-			Model:       model,
 			Temperature: temperature,
 			MaxTokens:   maxTokens,
 			Debug:       verbose,
@@ -54,21 +54,9 @@ var reviewCmd = &cobra.Command{
 			DisableReview: disableReview,
 		}
 
-		var ghClient *github.Client
-		if ghToken != "" || (ghToken == "" && github.GetEnvToken() != "") {
-			ghClient = github.NewClient()
-			token := ghToken
-			if token == "" {
-				token = github.GetEnvToken()
-			}
-			ghClient.SetToken(token)
-
-			if prNumber > 0 && repoFullName != "" {
-				parts := splitRepo(repoFullName)
-				if len(parts) == 2 {
-					ghClient.SetPR(parts[0], parts[1], prNumber)
-				}
-			}
+		ghClient, err := getGitHubClientForPR(ghToken, prNumber, repoFullName)
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub client: %w", err)
 		}
 
 		r := reviewer.New(cfg, ghClient)
@@ -85,13 +73,7 @@ var reviewCmd = &cobra.Command{
 		}
 
 		if postToGitHub && ghClient != nil && prNumber > 0 && repoFullName != "" {
-			_ = ghClient.PostReview(context.Background(), result.Review)
-
-			for _, label := range result.LabelsAdded {
-				if label != "" {
-					_ = ghClient.AddLabel(context.Background(), label)
-				}
-			}
+			postReview(ghClient, result.Review, result.LabelsAdded)
 		}
 
 		fmt.Println(jsonOut)
@@ -106,7 +88,6 @@ var runCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		cfg := reviewer.Config{
-			Model:           model,
 			Temperature:     temperature,
 			MaxTokens:       maxTokens,
 			Debug:           verbose,
@@ -140,21 +121,15 @@ var runCmd = &cobra.Command{
 		result, err := r.Review(context.Background(), string(diffContent))
 		if err != nil {
 			if ghClient != nil {
-				_ = ghClient.PostReview(context.Background(), result.Review)
+				if err := ghClient.PostReview(context.Background(), result.Review); err != nil {
+					fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
+				}
 			}
 			return fmt.Errorf("review failed: %w", err)
 		}
 
 		if ghClient != nil {
-			_ = ghClient.PostReview(context.Background(), result.Review)
-
-			for _, label := range result.LabelsAdded {
-				if label != "" {
-					_ = ghClient.AddLabel(context.Background(), label)
-				}
-			}
-
-			_ = ghClient.RemoveLabel(context.Background(), "ai_code_review")
+			postReview(ghClient, result.Review, result.LabelsAdded)
 		}
 
 		fmt.Println("✅ Review completed")
@@ -163,12 +138,51 @@ var runCmd = &cobra.Command{
 }
 
 func splitRepo(s string) []string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '/' {
-			return []string{s[:i], s[i+1:]}
+	return strings.SplitN(s, "/", 2)
+}
+
+func getGitHubClientForPR(ghToken string, prNumber int, repoFullName string) (*github.Client, error) {
+	if ghToken == "" && github.GetEnvToken() == "" {
+		return nil, nil
+	}
+
+	token := ghToken
+	if token == "" {
+		token = github.GetEnvToken()
+	}
+
+	if len(token) < 10 {
+		return nil, fmt.Errorf("invalid GitHub token: token too short")
+	}
+
+	ghClient := github.NewClient()
+	ghClient.SetToken(token)
+
+	if prNumber > 0 && repoFullName != "" {
+		parts := splitRepo(repoFullName)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid repo format: expected owner/repo")
+		}
+		ghClient.SetPR(parts[0], parts[1], prNumber)
+	}
+
+	return ghClient, nil
+}
+
+func postReview(ghClient *github.Client, review string, labels []string) {
+	if ghClient == nil {
+		return
+	}
+	if err := ghClient.PostReview(context.Background(), review); err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
+	}
+	for _, label := range labels {
+		if label != "" {
+			if err := ghClient.AddLabel(context.Background(), label); err != nil {
+				fmt.Fprintln(os.Stderr, "Warning: failed to add label:", err)
+			}
 		}
 	}
-	return []string{s}
 }
 
 func init() {
@@ -197,11 +211,13 @@ func init() {
 	RootCmd.AddCommand(runCmd)
 }
 
-var commentID int64
-var commentBody string
-var diffHunk string
-var commentFile string
-var commentLine int
+var (
+	commentID   int64
+	commentBody string
+	diffHunk    string
+	commentFile string
+	commentLine int
+)
 
 var commentCmd = &cobra.Command{
 	Use:   "comment",
@@ -210,7 +226,6 @@ var commentCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		cfg := reviewer.Config{
-			Model:         model,
 			Temperature:   temperature,
 			MaxTokens:     maxTokens,
 			Debug:         verbose,
@@ -221,21 +236,9 @@ var commentCmd = &cobra.Command{
 			OpenAIBaseURL: openAIBaseURL,
 		}
 
-		var ghClient *github.Client
-		if ghToken != "" || (ghToken == "" && github.GetEnvToken() != "") {
-			ghClient = github.NewClient()
-			token := ghToken
-			if token == "" {
-				token = github.GetEnvToken()
-			}
-			ghClient.SetToken(token)
-
-			if prNumber > 0 && repoFullName != "" {
-				parts := splitRepo(repoFullName)
-				if len(parts) == 2 {
-					ghClient.SetPR(parts[0], parts[1], prNumber)
-				}
-			}
+		ghClient, err := getGitHubClientForPR(ghToken, prNumber, repoFullName)
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub client: %w", err)
 		}
 
 		r := reviewer.New(cfg, ghClient)

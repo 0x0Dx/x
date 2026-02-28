@@ -17,8 +17,10 @@ import (
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 )
 
-var safeIconRegex = regexp.MustCompile(`^[\p{L}\p{N}\p{Po}\p{S}\s]+$`)
-var avatarRegex = regexp.MustCompile(`^<img src="[^"]+" alt="[^"]+" width="\d+" height="\d+" ?/?>$`)
+var (
+	safeIconRegex = regexp.MustCompile(`^[\p{L}\p{N}\p{Po}\p{S}\s]+$`)
+	avatarRegex   = regexp.MustCompile(`^<img src="[^"]+" alt="[^"]+" width="\d+" height="\d+" ?/?>$`)
+)
 
 func isValidBotIcon(icon string) bool {
 	if icon == "" || len(icon) > 100 {
@@ -43,10 +45,6 @@ const (
 // Config holds reviewer configuration.
 type Config struct {
 	Debug               bool
-	MaxFiles            int
-	ReviewSimpleChanges bool
-	ReviewCommentLGTM   bool
-	PathFilters         string
 	DisableReview       bool
 	DisableReleaseNotes bool
 	OpenAIBaseURL       string
@@ -55,16 +53,11 @@ type Config struct {
 	Temperature         float64
 	Retries             int
 	TimeoutMS           int
-	ConcurrencyLimit    int
 	SystemMessage       string
 	SummarizePrompt     string
-	ReleaseNotesPrompt  string
 	Language            string
 	BotIcon             string
-
-	// Legacy options (for backward compatibility)
-	Model     string
-	MaxTokens int
+	MaxTokens           int
 }
 
 // ReviewResponse represents the AI review response.
@@ -214,9 +207,6 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 func (r *Reviewer) selectModel(isHeavy bool) string {
 	if isHeavy {
 		model := r.cfg.HeavyModel
-		if model == "" {
-			model = r.cfg.Model
-		}
 		if model == "" {
 			model = defaultHeavyModel
 		}
