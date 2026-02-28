@@ -236,8 +236,8 @@ inputs:
     default: "en-US"
   bot_icon:
     required: false
-    description: "The icon for the bot"
-    default: '<img src="https://avatars.githubusercontent.com/u/126201299?s=41" alt="Image description" width="20" height="20">'
+    description: "The icon for the bot (emoji or <img> HTML tag)"
+    default: '<img src="https://avatars.githubusercontent.com/u/126201299?s=41" alt="goreviewer" width="20" height="20">'
   fail_on_requested_changes:
     required: false
     description: "Fail workflow if AI requests changes"
@@ -270,4 +270,4 @@ runs:
       run: |
         cd goreviewer
         go build -o goreviewer .
-        ./goreviewer run --pr "$PR_NUMBER" --repo "$REPO_FULL_NAME" --light-model "${{ inputs.openai_light_model }}" --heavy-model "${{ inputs.openai_heavy_model }}" --system-message "${{ inputs.system_message }}" --language "${{ inputs.language }}" --openai-base-url "${{ inputs.openai_base_url }}" --bot-icon "${{ inputs.bot_icon }}" < ../diff.txt
+        ./goreviewer run --pr "$PR_NUMBER" --repo "$REPO_FULL_NAME" --light-model "${{ inputs.openai_light_model }}" --heavy-model "${{ inputs.openai_heavy_model }}" --system-message "${{ inputs.system_message }}" --language "${{ inputs.language }}" --openai-base-url "${{ inputs.openai_base_url }}" --bot-icon '${{ inputs.bot_icon }}' < ../diff.txt
