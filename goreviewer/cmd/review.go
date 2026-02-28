@@ -192,7 +192,7 @@ func init() {
 	runCmd.Flags().StringVar(&summarizePrompt, "summarize-prompt", "", "Summarize prompt")
 	runCmd.Flags().StringVar(&language, "language", "en-US", "Response language")
 	runCmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
-	runCmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon")
+	runCmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon (emoji only)")
 	runCmd.Flags().BoolVar(&disableReview, "disable-review", false, "Only provide summary")
 	RootCmd.AddCommand(runCmd)
 }

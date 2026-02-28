@@ -17,13 +17,13 @@ import (
 	"github.com/0x0Dx/x/goreviewer/internal/github"
 )
 
-var emojiRegex = regexp.MustCompile(`^[\p{L}\p{N}\s]+$`)
+var safeIconRegex = regexp.MustCompile(`^[\p{L}\p{N}\p{Po}\p{S}\s]+$`)
 
 func isValidBotIcon(icon string) bool {
 	if icon == "" || len(icon) > 50 {
 		return false
 	}
-	return emojiRegex.MatchString(icon)
+	return safeIconRegex.MatchString(icon)
 }
 
 const (
