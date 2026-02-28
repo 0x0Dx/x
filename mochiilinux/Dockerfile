@@ -213,3 +213,17 @@ RUN cd /sources && \
     --disable-libsanitizer && \
   make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
   make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/sysroot install ;
+
+# Make
+FROM stage0 AS make-stage0
+
+ENV MAKE_VERSION=4.4.1
+RUN mkdir /sources && cd /sources && \
+  wget https://ftp.gnu.org/gnu/make/make-${MAKE_VERSION}.tar.gz
+
+RUN cd /sources && tar -xvf make-${MAKE_VERSION}.tar.gz && \
+  cd make-${MAKE_VERSION} && \
+  ./configure --prefix=/usr \
+  --build=${BUILD_ARCH} --host=${TARGET} && \
+  make -j${JOBS} && \
+  make -j${JOBS} DESTDIR=/sysroot install
