@@ -18,30 +18,25 @@ jobs:
   goreviewer:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug event
+      - name: Check event and comment
+        id: check
         run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "Comment body: ${{ github.event.comment.body }}"
-          echo "Is PR: ${{ github.event.issue.pull_request }}"
-
-      - name: Check if should run
-        id: should_run
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "run=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
-            BODY="${{ github.event.comment.body }}"
-            if [[ "$BODY" == "/goreviewer"* ]]; then
-              echo "run=true" >> $GITHUB_OUTPUT
-            else
-              echo "run=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
+          echo "Event name: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "Comment body: ${{ github.event.comment.body }}"
+            echo "Issue PR URL: ${{ github.event.issue.pull_request.url }}"
           fi
 
-      - name: GoReviewer
-        if: steps.should_run.outputs.run == 'true'
+      - name: Run on PR
+        if: github.event_name == 'pull_request'
+        uses: 0x0Dx/x/goreviewer@feat/support-comment-replies
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Run on comment
+        if: github.event_name == 'issue_comment' && contains(github.event.comment.body, '/goreviewer')
         uses: 0x0Dx/x/goreviewer@feat/support-comment-replies
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
