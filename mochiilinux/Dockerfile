@@ -248,3 +248,7 @@ RUN cd /sources && tar -xvf binutils-${BINUTILS_VERSION}.tar.xz && \
     --enable-shared && \
   make -j${JOBS} && \
   make DESTDIR=/sysroot install ;
+
+# This is a hack to avoid to need the kernel headers to compile things like busybox
+FROM alpine AS alpine-hack
+RUN apk add linux-headers
