@@ -10,34 +10,99 @@ on:
     branches: ["main"]
 
 jobs:
-  go:
+  tools:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-tags: true
-          fetch-depth: 0
-      - name: Build essential
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential
       - uses: actions/setup-go@v6.3.0
         with:
           go-version: '1.25.7'
           cache: true
-          cache-dependency-path: |
-            **/go.sum
-            **/go.mod
+      - name: Cache Go tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            $/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
       - name: Install all tools needed
         run: |
           go install github.com/go-task/task/v3/cmd/task@latest
           $HOME/go/bin/task install:tools
-      - name: Run gofumpt for all packages
+
+  gofumpt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: '1.25.7'
+          cache: true
+      - name: Cache Go tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            $/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+      - name: Run gofumpt
         run: $HOME/go/bin/task fmt
-      - name: Run base linters for all packages
+
+  linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: '1.25.7'
+          cache: true
+      - name: Cache Go tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            $/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+      - name: Run linter
         run: $HOME/go/bin/task lint
-      - name: Build all binaries
-        run: $HOME/go/bin/task build
-      - name: Run tests for all packages
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: '1.25.7'
+          cache: true
+      - name: Cache Go tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            $/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+      - name: Run tests
         run: $HOME/go/bin/task test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: '1.25.7'
+          cache: true
+      - name: Cache Go tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            $/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+      - name: Build binaries
+        run: $HOME/go/bin/task build
