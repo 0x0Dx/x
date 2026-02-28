@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/0x0Dx/x/mochii/internal/builder"
+	"github.com/0x0Dx/x/mochii/internal/config"
 	"github.com/0x0Dx/x/mochii/internal/db"
 	"github.com/0x0Dx/x/mochii/internal/hasher"
 	"github.com/0x0Dx/x/mochii/internal/helper"
@@ -315,6 +317,61 @@ func (c *CLI) EvalExpressionFile(path string) error {
 	return nil
 }
 
+// SwitchConfig switches to a declarative configuration.
+func (c *CLI) SwitchConfig(path string) error {
+	cfg, err := config.Load(path)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	cfgHash, err := cfg.Hash()
+	if err != nil {
+		return fmt.Errorf("config hash: %w", err)
+	}
+
+	configPath := filepath.Join(c.cfg.HomeDir, "config.json")
+	if err := cfg.Save(configPath); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+
+	fmt.Printf("switched to config %s\n", cfgHash)
+	return nil
+}
+
+// Config installs packages from a declarative configuration.
+func (c *CLI) Config(path string) error {
+	cfg, err := config.Load(path)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	for name, pkg := range cfg.Packages {
+		if pkg.Expression != nil {
+			h, err := c.builder.RegisterDerivation(pkg.Expression)
+			if err != nil {
+				return fmt.Errorf("register %s: %w", name, err)
+			}
+			pkg.Hash = h.String()
+			fmt.Printf("%s: %s\n", name, h)
+
+			if _, err := c.builder.Install(h); err != nil {
+				return fmt.Errorf("install %s: %w", name, err)
+			}
+		} else if pkg.Hash != "" {
+			h, err := hasher.Parse(pkg.Hash)
+			if err != nil {
+				return fmt.Errorf("parse hash %s: %w", pkg.Hash, err)
+			}
+			if _, err := c.builder.Install(h); err != nil {
+				return fmt.Errorf("install %s: %w", name, err)
+			}
+			fmt.Printf("%s: %s (already registered)\n", name, h)
+		}
+	}
+
+	return nil
+}
+
 // PrintUsage prints the CLI usage message.
 func PrintUsage() {
 	fmt.Fprintf(os.Stderr, `Usage: mochii COMMAND [OPTIONS]...
@@ -322,20 +379,14 @@ func PrintUsage() {
 Commands:
   init                  Initialize the database
   verify                Verify installed packages
-  getpkg HASH           Install and return package path
-  delpkg HASH           Remove installed package
-  listinst              List installed packages
-  run HASH [ARGS]       Run package
-  regfile FILE          Register file by hash
-  regurl HASH URL       Register URL for hash
-  regderivation FILE    Register derivation expression
-  eval FILE             Evaluate expression file
-  fetch URL             Fetch URL and print hash
+  switch-config FILE    Switch to declarative config
+  config FILE           Evaluate and install packages from config
   profile               List profile generations
-  switch HASH PATH      Switch to package in profile
   gc                    Collect garbage
   pull URL...           Pull prebuilt packages
   push DIR              Push prebuilt packages to directory
+  dump FILE             Dump path as archive
+  restore FILE          Restore archive to path
 
 `)
 }

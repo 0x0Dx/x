@@ -83,3 +83,32 @@ func (e Error) Error() string {
 func Errorf(format string, args ...any) Error {
 	return Error{msg: fmt.Sprintf(format, args...)}
 }
+
+// DeletePath removes a path recursively.
+func DeletePath(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("lstat %s: %w", path, err)
+	}
+
+	if info.IsDir() {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return fmt.Errorf("read dir %s: %w", path, err)
+		}
+		for _, e := range entries {
+			if e.Name() == "." || e.Name() == ".." {
+				continue
+			}
+			if err := DeletePath(filepath.Join(path, e.Name())); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("remove %s: %w", path, err)
+	}
+
+	return nil
+}

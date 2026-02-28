@@ -133,6 +133,28 @@ func (m *Manager) AddValueFromReader(name string, r io.Reader) (hasher.Hash, err
 	return hash, nil
 }
 
+// DeleteValue removes a value from the store.
+func (m *Manager) DeleteValue(hash hasher.Hash) error {
+	name, ok, err := m.DB.Get("refs", hash.String())
+	if err != nil {
+		return fmt.Errorf("query refs: %w", err)
+	}
+	if !ok {
+		return nil
+	}
+
+	path := filepath.Join(m.ValuesDir, name)
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("remove value: %w", err)
+	}
+
+	if err := m.DB.Delete("refs", hash.String()); err != nil {
+		return fmt.Errorf("delete ref: %w", err)
+	}
+
+	return nil
+}
+
 func (m *Manager) copyFile(src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
