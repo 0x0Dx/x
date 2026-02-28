@@ -271,26 +271,28 @@ runs:
       id: check_mention
       shell: bash
       run: |
+        COMMENT_BODY=""
+        
+        # Check PR review comment (comment on a diff/file)
         if [ "${{ github.event_name }}" = "pull_request_review_comment" ]; then
-          COMMENT_BODY="${{ github.event.comment.body }}"
-          if echo "$COMMENT_BODY" | grep -qi "^/goreviewer"; then
-            echo "MENTIONED=true" >> $GITHUB_OUTPUT
-            echo "COMMENT_ID=${{ github.event.comment.id }}" >> $GITHUB_OUTPUT
-            COMMENT_BODY_ESCAPED=$(echo "$COMMENT_BODY" | jq -Rs .)
-            echo "COMMENT_BODY=$COMMENT_BODY_ESCAPED" >> $GITHUB_OUTPUT
-            if [ -n "${{ github.event.comment.diff_hunk }}" ]; then
-              DIFF_HUNK_ESCAPED=$(echo "${{ github.event.comment.diff_hunk }}" | jq -Rs .)
-              echo "DIFF_HUNK=$DIFF_HUNK_ESCAPED" >> $GITHUB_OUTPUT
-            fi
-            if [ -n "${{ github.event.comment.path }}" ]; then
-              echo "FILE_PATH=${{ github.event.comment.path }}" >> $GITHUB_OUTPUT
-              echo "LINE=${{ github.event.comment.line }}" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "MENTIONED=false" >> $GITHUB_OUTPUT
+          COMMENT_BODY="${{ github.event.review.body }}"
+        fi
+        
+        # Check issue comment (comment on PR)
+        if [ -z "$COMMENT_BODY" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ -n "${{ github.event.comment.body }}" ]; then
+            COMMENT_BODY="${{ github.event.comment.body }}"
           fi
+        fi
+        
+        # Check for /goreviewer command
+        if echo "$COMMENT_BODY" | grep -qi "^/goreviewer"; then
+          echo "MENTIONED=true" >> $GITHUB_OUTPUT
+          COMMENT_BODY_ESCAPED=$(echo "$COMMENT_BODY" | jq -Rs .)
+          echo "COMMENT_BODY=$COMMENT_BODY_ESCAPED" >> $GITHUB_OUTPUT
         else
           echo "MENTIONED=false" >> $GITHUB_OUTPUT
+        fi
         fi
 
     - name: Run goreviewer
