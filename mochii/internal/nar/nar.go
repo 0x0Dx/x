@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Hash computes the NAR hash of a directory.
@@ -171,6 +172,12 @@ func NewReader(r io.Reader) *Reader {
 
 // Extract extracts the NAR archive to a directory.
 func (nr *Reader) Extract(dest string) error {
+	// Ensure destination is an absolute, cleaned path.
+	absDest, err := filepath.Abs(filepath.Clean(dest))
+	if err != nil {
+		return fmt.Errorf("invalid destination path: %w", err)
+	}
+
 	for {
 		header, err := nr.r.Next()
 		if err == io.EOF {
@@ -185,18 +192,42 @@ func (nr *Reader) Extract(dest string) error {
 			continue
 		}
 
-		path := filepath.Join(dest, header.Name)
+		// Clean and validate the header name to prevent directory traversal.
+		cleanName := filepath.Clean(header.Name)
+		if cleanName == "." {
+			// Nothing to extract for a root-like entry.
+			continue
+		}
+
+		targetPath := filepath.Join(absDest, cleanName)
+		absTarget, err := filepath.Abs(targetPath)
+		if err != nil {
+			return fmt.Errorf("invalid target path for %q: %w", header.Name, err)
+		}
+
+		// Ensure the target path is within the destination directory.
+		prefix := absDest
+		if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+			prefix += string(os.PathSeparator)
+		}
+		checkPath := absTarget
+		if !strings.HasSuffix(checkPath, string(os.PathSeparator)) && header.Typeflag == tar.TypeDir {
+			checkPath += string(os.PathSeparator)
+		}
+		if absTarget != absDest && !strings.HasPrefix(checkPath, prefix) {
+			return fmt.Errorf("archive entry %q would be extracted outside destination", header.Name)
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(path, 0755); err != nil {
+			if err := os.MkdirAll(absTarget, 0755); err != nil {
 				return fmt.Errorf("mkdir: %w", err)
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(absTarget), 0755); err != nil {
 				return fmt.Errorf("mkdir for file: %w", err)
 			}
-			f, err := os.Create(path)
+			f, err := os.Create(absTarget)
 			if err != nil {
 				return fmt.Errorf("create file: %w", err)
 			}
@@ -205,12 +236,14 @@ func (nr *Reader) Extract(dest string) error {
 				return fmt.Errorf("extract file: %w", err)
 			}
 			f.Close()
-			os.Chmod(path, header.FileInfo().Mode())
+			os.Chmod(absTarget, header.FileInfo().Mode())
 		case tar.TypeSymlink:
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(absTarget), 0755); err != nil {
 				return fmt.Errorf("mkdir for symlink: %w", err)
 			}
-			os.Symlink(header.Linkname, path)
+			if err := os.Symlink(header.Linkname, absTarget); err != nil {
+				return fmt.Errorf("create symlink: %w", err)
+			}
 		}
 	}
 
