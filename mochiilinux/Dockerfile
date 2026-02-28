@@ -172,3 +172,44 @@ RUN cd /sources && tar -xvf musl-${MUSL_VERSION}.tar.gz && \
     --target=${TARGET} && \
   make -j${JOBS} &&\
   DESTDIR=/sysroot make -j${JOBS} install
+
+# GCC
+FROM stage0 AS gcc-stage0
+
+ENV GCC_VERSION=14.3.0
+ENV GMP_VERSION=6.3.0
+ENV MPC_VERSION=1.3.1
+ENV MPFR_VERSION=4.2.2
+
+RUN mkdir /sources && cd /sources && \
+  wget \
+    https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz \
+    https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 \
+    https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz \
+    https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2 && \
+  tar -xvf gcc-${GCC_VERSION}.tar.xz && \
+  tar -xvf gmp-${GMP_VERSION}.tar.bz2 && \
+  tar -xvf mpc-${MPC_VERSION}.tar.gz && \
+  tar -xvf mpfr-${MPFR_VERSION}.tar.bz2 && \
+  mv -v gmp-${GMP_VERSION} gcc-${GCC_VERSION}/gmp && \
+  mv -v mpc-${MPC_VERSION} gcc-${GCC_VERSION}/mpc && \
+  mv -v mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
+
+RUN cd /sources && \
+  mkdir -p /sysroot/usr/include && \
+  cd gcc-${GCC_VERSION} && mkdir -v build && cd build && ls -liah /gcc-${GCC_VERSION}/mpfr/src/ && \
+  ../configure \
+    --prefix=/usr \
+    --build=${BUILD_ARCH} \
+    --host=${TARGET} \
+    --target=${TARGET} \
+    --with-sysroot=/ \
+    --disable-nls \
+    --enable-languages=c,c++ \
+    --enable-c99 \
+    --enable-long-long \
+    --disable-libmudflap \
+    --disable-multilib \
+    --disable-libsanitizer && \
+  make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
+  make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/sysroot install ;
