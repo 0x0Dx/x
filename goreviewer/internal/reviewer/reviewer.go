@@ -302,12 +302,7 @@ func (r *Reviewer) buildSummarizePrompt(diffContent string) string {
 	// Use custom prompt or default
 	prompt := r.cfg.SummarizePrompt
 	if prompt == "" {
-		prompt = `Provide your final response in markdown with the following content:
-- **Walkthrough**: A high-level summary of the overall change within 80 words.
-- **Changes**: A markdown table of files and their summaries. Group files with similar changes together.
-- **Poem**: Below the changes, include a whimsical short poem written by a rabbit to celebrate the changes. Format as a quote using ">" and use emojis.
-
-Avoid additional commentary as this summary will be added as a comment on the GitHub pull request. Use titles "Walkthrough" and "Changes" as H2.`
+		prompt = PromptSummarizeShort
 	}
 
 	lang := r.cfg.Language
