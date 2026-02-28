@@ -1,20 +1,21 @@
 name: GoReviewer
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
 
 jobs:
   goreviewer:
     name: GoReviewer
     runs-on: ubuntu-latest
+    if: github.event.issue.pull_request != ''
     permissions:
       contents: read
       pull-requests: write
       issues: write
     steps:
       - name: AI Code Review
-        uses: 0x0Dx/x/goreviewer@main
+        uses: 0x0Dx/x/goreviewer@feat/support-comment-replies
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
