@@ -21,8 +21,7 @@ jobs:
       - name: Cache Go tools
         uses: actions/cache@v4
         with:
-          path: |
-            $/go/bin
+          path: $HOME/go/bin
           key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
           restore-keys: |
             ${{ runner.os }}-go-tools-
@@ -43,8 +42,7 @@ jobs:
       - name: Cache Go tools
         uses: actions/cache@v4
         with:
-          path: |
-            $/go/bin
+          path: $HOME/go/bin
           key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
           restore-keys: |
             ${{ runner.os }}-go-tools-
@@ -63,8 +61,7 @@ jobs:
       - name: Cache Go tools
         uses: actions/cache@v4
         with:
-          path: |
-            $/go/bin
+          path: $HOME/go/bin
           key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
           restore-keys: |
             ${{ runner.os }}-go-tools-
@@ -83,8 +80,7 @@ jobs:
       - name: Cache Go tools
         uses: actions/cache@v4
         with:
-          path: |
-            $/go/bin
+          path: $HOME/go/bin
           key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
           restore-keys: |
             ${{ runner.os }}-go-tools-
@@ -103,8 +99,7 @@ jobs:
       - name: Cache Go tools
         uses: actions/cache@v4
         with:
-          path: |
-            $/go/bin
+          path: $HOME/go/bin
           key: ${{ runner.os }}-go-tools-${{ hashFiles('Taskfile.yml') }}
           restore-keys: |
             ${{ runner.os }}-go-tools-
