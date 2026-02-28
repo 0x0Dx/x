@@ -1,0 +1,21 @@
+name: GoReviewer
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  goreviewer:
+    name: GoReviewer
+    runs-on: ubuntu-latest
+    if: github.event.action == 'labeled' && github.event.label.name == 'ai_code_review'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: AI Code Review
+        uses: 0x0Dx/x/goreviewer@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}

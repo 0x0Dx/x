@@ -77,15 +77,15 @@ An AI code reviewer action for GitHub workflows.
 ### Quick Start
 
 ```yaml
-name: AI Code Review
+name: GoReviewer
 
 on:
   pull_request:
     types: [labeled]
 
 jobs:
-  ai-review:
-    name: AI Code Review
+  goreviewer:
+    name: GoReviewer
     runs-on: ubuntu-latest
     if: github.event.action == 'labeled' && github.event.label.name == 'ai_code_review'
     permissions:
