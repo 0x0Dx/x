@@ -27,12 +27,13 @@ func isValidBotIcon(icon string) bool {
 }
 
 const (
-	reviewHeader    = "## AI Code Review"
-	reviewFooter    = "*Review by [GoReviewer](https://github.com/0x0Dx/x/tree/main/goreviewer)*"
-	maxDiffSize     = 5000000
-	defaultModel    = "minimax/minimax-m2.5"
-	defaultBaseURL  = "https://openrouter.ai/api/v1"
-	defaultLanguage = "en-US"
+	reviewHeader      = "## AI Code Review"
+	reviewFooter      = "*Review by [GoReviewer](https://github.com/0x0Dx/x/tree/main/goreviewer)*"
+	maxDiffSize       = 5000000
+	defaultLightModel = "gpt-3.5-turbo"
+	defaultHeavyModel = "gpt-4"
+	defaultBaseURL    = "https://api.openai.com/v1"
+	defaultLanguage   = "en-US"
 )
 
 // Config holds reviewer configuration.
@@ -136,7 +137,7 @@ func (r *Reviewer) Review(ctx context.Context, diffContent string) (ReviewRespon
 		model = r.cfg.Model
 	}
 	if model == "" {
-		model = defaultModel
+		model = defaultHeavyModel
 	}
 
 	// Build the prompt
@@ -175,7 +176,7 @@ func (r *Reviewer) Summarize(ctx context.Context, diffContent string) (SummaryRe
 
 	model := r.cfg.LightModel
 	if model == "" {
-		model = defaultModel
+		model = defaultLightModel
 	}
 
 	prompt := r.buildSummarizePrompt(diffContent)
@@ -211,7 +212,7 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 		model = r.cfg.Model
 	}
 	if model == "" {
-		model = defaultModel
+		model = defaultHeavyModel
 	}
 
 	prompt := r.buildReviewCommentPrompt(req)

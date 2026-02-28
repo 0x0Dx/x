@@ -11,9 +11,9 @@ inputs:
     description: "GitHub token for posting comments"
     default: "${{ github.token }}"
   openai_api_key:
-    required: false
+    required: true
     description: "OpenAI API key"
-    default: "${{ secrets.OPENAI_API_KEY }}"
+    default: ""
   debug:
     required: false
     description: "Enable debug mode"
