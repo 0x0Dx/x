@@ -413,3 +413,26 @@ RUN cd /sources && tar -xvf musl-${MUSL_VERSION}.tar.gz && \
     --disable-static && \
   make -j${JOBS} && \
   DESTDIR=/sysroot make -j${JOBS} install
+
+# Pkgconfig
+FROM stage1 AS pkgconfig
+
+ENV PKGCONFIG_VERSION=1.8.1
+
+COPY --from=sources-downloader /sources/downloads/pkgconf-${PKGCONFIG_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf pkgconf-${PKGCONFIG_VERSION}.tar.xz && \
+  cd pkgconf-${PKGCONFIG_VERSION} && \
+  mkdir -p /pkgconfig && \
+  ./configure ${COMMON_ARGS} \
+    --disable-dependency-tracking \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --localstatedir=/var \
+    --with-pkg-config-dir=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig && \
+  make && \
+  make DESTDIR=/pkgconfig install && \
+  make install && \
+  ln -s pkgconf /pkgconfig/usr/bin/pkg-config
