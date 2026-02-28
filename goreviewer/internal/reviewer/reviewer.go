@@ -166,10 +166,7 @@ func (r *Reviewer) Summarize(ctx context.Context, diffContent string) (SummaryRe
 		return SummaryResponse{}, errors.New("empty diff content")
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return SummaryResponse{}, errors.New("missing API key")
 	}
@@ -199,10 +196,7 @@ func (r *Reviewer) Summarize(ctx context.Context, diffContent string) (SummaryRe
 
 // RespondToReviewComment responds to a review comment.
 func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewCommentRequest) (string, error) {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return "", errors.New("missing API key")
 	}
