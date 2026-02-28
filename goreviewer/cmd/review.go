@@ -118,7 +118,9 @@ var runCmd = &cobra.Command{
 		result, err := r.Review(context.Background(), string(diffContent))
 		if err != nil {
 			if ghClient != nil {
-				_ = ghClient.PostReview(context.Background(), result.Review)
+				if err := ghClient.PostReview(context.Background(), result.Review); err != nil {
+					fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
+				}
 			}
 			return fmt.Errorf("review failed: %w", err)
 		}
@@ -162,10 +164,14 @@ func postReview(ghClient *github.Client, review string, labels []string) {
 	if ghClient == nil {
 		return
 	}
-	_ = ghClient.PostReview(context.Background(), review)
+	if err := ghClient.PostReview(context.Background(), review); err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
+	}
 	for _, label := range labels {
 		if label != "" {
-			_ = ghClient.AddLabel(context.Background(), label)
+			if err := ghClient.AddLabel(context.Background(), label); err != nil {
+				fmt.Fprintln(os.Stderr, "Warning: failed to add label:", err)
+			}
 		}
 	}
 }
