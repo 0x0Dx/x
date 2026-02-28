@@ -123,21 +123,9 @@ func (r *Reviewer) Review(ctx context.Context, diffContent string) (ReviewRespon
 		return errorResponse(fmt.Sprintf("Diff is too large (%d bytes, max: %d bytes)", len(diffContent), maxDiffSize)), errors.New("diff too large")
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
-	if apiKey == "" {
-		return errorResponse("Missing OPENROUTER_API_KEY or OPENAI_API_KEY environment variable"), errors.New("missing API key")
-	}
-
-	// Determine which model to use
-	model := r.cfg.HeavyModel
-	if model == "" {
-		model = r.cfg.Model
-	}
-	if model == "" {
-		model = defaultHeavyModel
+		return errorResponse("Missing OPENAI_API_KEY environment variable"), errors.New("missing API key")
 	}
 
 	// Build the prompt
@@ -152,6 +140,7 @@ func (r *Reviewer) Review(ctx context.Context, diffContent string) (ReviewRespon
 		baseURL = defaultBaseURL
 	}
 
+	model := r.selectModel(true)
 	body, err := r.callAPI(ctx, apiKey, baseURL, referer, model, prompt)
 	if err != nil {
 		return errorResponse(fmt.Sprintf("API call failed: %v", err)), err
@@ -171,10 +160,7 @@ func (r *Reviewer) Summarize(ctx context.Context, diffContent string) (SummaryRe
 		return SummaryResponse{}, errors.New("missing API key")
 	}
 
-	model := r.cfg.LightModel
-	if model == "" {
-		model = defaultLightModel
-	}
+	model := r.selectModel(false)
 
 	prompt := r.buildSummarizePrompt(diffContent)
 
@@ -201,13 +187,7 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 		return "", errors.New("missing API key")
 	}
 
-	model := r.cfg.HeavyModel
-	if model == "" {
-		model = r.cfg.Model
-	}
-	if model == "" {
-		model = defaultHeavyModel
-	}
+	model := r.selectModel(true)
 
 	prompt := r.buildReviewCommentPrompt(req)
 
@@ -225,6 +205,24 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 	}
 
 	return r.parseSimpleResponse(body)
+}
+
+func (r *Reviewer) selectModel(isHeavy bool) string {
+	if isHeavy {
+		model := r.cfg.HeavyModel
+		if model == "" {
+			model = r.cfg.Model
+		}
+		if model == "" {
+			model = defaultHeavyModel
+		}
+		return model
+	}
+	model := r.cfg.LightModel
+	if model == "" {
+		model = defaultLightModel
+	}
+	return model
 }
 
 func (r *Reviewer) buildReviewPrompt(diffContent string) string {
