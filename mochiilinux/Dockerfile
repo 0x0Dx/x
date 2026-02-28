@@ -395,3 +395,21 @@ RUN make --version
 COPY ./tests/gcc/test.c test.c
 RUN gcc -Wall test.c -o test
 RUN ./test
+
+# Stage 1.5 - Building the packages for the final image
+
+# Musl
+FROM stage1 AS musl
+
+ENV MUSL_VERSION=1.2.5
+
+RUN mkdir /sources && cd /sources && \
+  wget https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz
+
+RUN cd /sources && tar -xvf musl-${MUSL_VERSION}.tar.gz && \
+  cd musl-${MUSL_VERSION} && \
+  ./configure \
+    --prefix=/usr \
+    --disable-static && \
+  make -j${JOBS} && \
+  DESTDIR=/sysroot make -j${JOBS} install
