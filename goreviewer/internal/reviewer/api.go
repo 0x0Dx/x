@@ -76,7 +76,7 @@ func (r *Reviewer) doRequest(ctx context.Context, apiKey, baseURL, referer, mode
 	reqBody := apiRequest{
 		Model: model,
 		Messages: []message{
-			{Role: "user", Content: prompt},
+			{Role: "user", Content: prompt + fmt.Sprintf("\n[Request ID: %d]", time.Now().Unix())},
 		},
 		Temperature: temp,
 		MaxTokens:   maxTokens,
