@@ -24,7 +24,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/goreviewer')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '/goreviewer'))
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./goreviewer/
         with:
           debug: true
