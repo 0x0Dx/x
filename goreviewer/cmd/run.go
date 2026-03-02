@@ -62,7 +62,7 @@ func NewRunCmd() *cobra.Command {
 			result, err := r.Review(context.Background(), string(diffContent))
 			if err != nil {
 				if ghClient != nil {
-					if err := ghClient.PostReview(context.Background(), result.Review, string(diffContent)); err != nil {
+					if err := ghClient.PostReview(context.Background(), result.Review); err != nil {
 						fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
 					}
 				}
@@ -70,7 +70,7 @@ func NewRunCmd() *cobra.Command {
 			}
 
 			if ghClient != nil {
-				postReview(ghClient, result.Review, result.LabelsAdded, string(diffContent))
+				postReview(ghClient, result.Review, result.LabelsAdded)
 				_ = ghClient.RemoveLabel(context.Background(), "ai_code_review")
 			}
 
