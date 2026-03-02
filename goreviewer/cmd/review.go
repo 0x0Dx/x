@@ -68,7 +68,7 @@ func NewReviewCmd() *cobra.Command {
 			}
 
 			if postToGitHub && ghClient != nil && prNumber > 0 && repoFullName != "" {
-				postReview(ghClient, result.Review, result.LabelsAdded)
+				postReview(ghClient, result.Review, result.LabelsAdded, string(diffContent))
 			}
 
 			fmt.Println(jsonOut)
@@ -90,11 +90,11 @@ func NewReviewCmd() *cobra.Command {
 	return cmd
 }
 
-func postReview(ghClient *github.Client, review string, labels []string) {
+func postReview(ghClient *github.Client, review string, labels []string, diff string) {
 	if ghClient == nil {
 		return
 	}
-	if err := ghClient.PostReview(context.Background(), review); err != nil {
+	if err := ghClient.PostReview(context.Background(), review, diff); err != nil {
 		fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
 	}
 	for _, label := range labels {

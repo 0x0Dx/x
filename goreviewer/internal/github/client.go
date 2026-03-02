@@ -3,6 +3,8 @@ package github
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -232,13 +234,106 @@ func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 	return strings.Join(lines, "\n\n---\n\n"), nil
 }
 
-// PostReview posts a review comment to the PR.
-func (c *Client) PostReview(ctx context.Context, body string) error {
-	_, _, err := c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
+// PostReview posts a review comment to the PR. It checks for existing
+// AI review comments using diff hash and either skips (same diff),
+// updates (different diff), or creates new comment.
+func (c *Client) PostReview(ctx context.Context, body, diff string) error {
+	diffHash := hashDiff(diff)
+
+	existingID, existingHash, err := c.FindExistingReview(ctx)
+	if err != nil {
+		return fmt.Errorf("find existing review: %w", err)
+	}
+
+	if existingID != 0 && existingHash == diffHash {
+		return nil
+	}
+
+	if existingID != 0 {
+		if err := c.UpdateComment(ctx, existingID, body, diffHash); err != nil {
+			return fmt.Errorf("update comment: %w", err)
+		}
+		return nil
+	}
+
+	_, _, err = c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
 		Body: &body,
 	})
 	if err != nil {
 		return fmt.Errorf("create comment: %w", err)
+	}
+
+	if diffHash != "" {
+		if err := c.addDiffHashLabel(ctx, diffHash); err != nil {
+			return fmt.Errorf("add diff hash label: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func hashDiff(diff string) string {
+	if diff == "" {
+		return ""
+	}
+	hash := sha256.Sum256([]byte(diff))
+	return hex.EncodeToString(hash[:])
+}
+
+// FindExistingReview looks for an existing AI Code Review comment.
+// Returns the comment ID, diff hash, and error if any.
+func (c *Client) FindExistingReview(ctx context.Context) (int64, string, error) {
+	comments, _, err := c.ghClient.Issues.ListComments(ctx, c.owner, c.repo, c.prNumber, nil)
+	if err != nil {
+		return 0, "", fmt.Errorf("list comments: %w", err)
+	}
+
+	for i := len(comments) - 1; i >= 0; i-- {
+		body := comments[i].GetBody()
+		if strings.HasPrefix(body, "## AI Code Review") {
+			hash := c.extractDiffHash(body)
+			return comments[i].GetID(), hash, nil
+		}
+	}
+
+	return 0, "", nil
+}
+
+func (c *Client) extractDiffHash(body string) string {
+	prefix := "<!-- diffhash:"
+	suffix := " -->"
+	start := strings.Index(body, prefix)
+	if start == -1 {
+		return ""
+	}
+	start += len(prefix)
+	end := strings.Index(body[start:], suffix)
+	if end == -1 {
+		return ""
+	}
+	return body[start : start+end]
+}
+
+func (c *Client) addDiffHashLabel(ctx context.Context, hash string) error {
+	label := "ai-diff-hash:" + hash[:8]
+	_, _, err := c.ghClient.Issues.AddLabelsToIssue(ctx, c.owner, c.repo, c.prNumber, []string{label})
+	if err != nil {
+		return fmt.Errorf("add label: %w", err)
+	}
+	return nil
+}
+
+// UpdateComment edits an existing comment.
+func (c *Client) UpdateComment(ctx context.Context, commentID int64, body, diffHash string) error {
+	if diffHash != "" {
+		hashComment := fmt.Sprintf("\n\n<!-- diffhash:%s -->", diffHash)
+		body += hashComment
+	}
+	_, _, err := c.ghClient.Issues.EditComment(ctx, c.owner, c.repo, commentID, &github.IssueComment{
+		Body: &body,
+	})
+	if err != nil {
+		return fmt.Errorf("edit comment: %w", err)
 	}
 	return nil
 }
