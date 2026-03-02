@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/v70/github"
 )
@@ -55,57 +56,99 @@ func (c *Client) SetPR(owner, repo string, prNumber int) {
 // FetchContext fetches GitHub context for a PR.
 func (c *Client) FetchContext(ctx context.Context) (Context, error) {
 	var ctxData Context
-	var errs []string
 
 	if c.owner == "" || c.repo == "" || c.prNumber == 0 {
 		return ctxData, nil
 	}
 
+	type result struct {
+		key   string
+		value string
+		err   error
+	}
+
+	ch := make(chan result, 6)
+
+	var wg sync.WaitGroup
+
 	if c.IncludeChecks {
-		if status, err := c.fetchCheckRuns(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("checks: %v", err))
-		} else {
-			ctxData.CheckRuns = status
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			status, err := c.fetchCheckRuns(ctx)
+			ch <- result{"CheckRuns", status, err}
+		}()
 	}
 
 	if c.IncludeLabels {
-		if labels, err := c.fetchLabels(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("labels: %v", err))
-		} else {
-			ctxData.Labels = labels
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			labels, err := c.fetchLabels(ctx)
+			ch <- result{"Labels", labels, err}
+		}()
 	}
 
 	if c.IncludeDesc {
-		if desc, err := c.fetchPRDescription(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("pr desc: %v", err))
-		} else {
-			ctxData.PRDescription = desc
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			desc, err := c.fetchPRDescription(ctx)
+			ch <- result{"PRDescription", desc, err}
+		}()
 	}
 
 	if c.IncludeCommits {
-		if commits, err := c.fetchCommits(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("commits: %v", err))
-		} else {
-			ctxData.Commits = commits
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			commits, err := c.fetchCommits(ctx)
+			ch <- result{"Commits", commits, err}
+		}()
 	}
 
 	if c.IncludePrev {
-		if prev, err := c.fetchPreviousReviews(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("prev reviews: %v", err))
-		} else {
-			ctxData.PreviousReview = prev
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			prev, err := c.fetchPreviousReviews(ctx)
+			ch <- result{"PreviousReview", prev, err}
+		}()
 	}
 
 	if c.IncludeHuman {
-		if comments, err := c.fetchHumanComments(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("human comments: %v", err))
-		} else {
-			ctxData.HumanComments = comments
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			comments, err := c.fetchHumanComments(ctx)
+			ch <- result{"HumanComments", comments, err}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var errs []string
+	for r := range ch {
+		if r.err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", r.key, r.err))
+			continue
+		}
+		switch r.key {
+		case "CheckRuns":
+			ctxData.CheckRuns = r.value
+		case "Labels":
+			ctxData.Labels = r.value
+		case "PRDescription":
+			ctxData.PRDescription = r.value
+		case "Commits":
+			ctxData.Commits = r.value
+		case "PreviousReview":
+			ctxData.PreviousReview = r.value
+		case "HumanComments":
+			ctxData.HumanComments = r.value
 		}
 	}
 
