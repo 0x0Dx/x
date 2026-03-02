@@ -2,11 +2,11 @@ package licenses
 
 import (
 	"embed"
-	"html/template"
 	"io"
 	"io/fs"
 	"log"
 	"strings"
+	"text/template"
 	"time"
 )
 
