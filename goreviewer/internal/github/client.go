@@ -236,7 +236,7 @@ func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 
 // PostReview posts a review comment to the PR. It checks for existing
 // AI review comments using diff hash and either skips (same diff),
-// updates (different diff), or creates new comment.
+// or creates a new comment if the diff has changed.
 func (c *Client) PostReview(ctx context.Context, body, diff string) error {
 	diffHash := hashDiff(diff)
 
@@ -245,28 +245,23 @@ func (c *Client) PostReview(ctx context.Context, body, diff string) error {
 		return fmt.Errorf("find existing review: %w", err)
 	}
 
+	// Same diff - skip posting duplicate
 	if existingID != 0 && existingHash == diffHash {
 		return nil
 	}
 
-	if existingID != 0 {
-		if err := c.UpdateComment(ctx, existingID, body, diffHash); err != nil {
-			return fmt.Errorf("update comment: %w", err)
-		}
-		return nil
+	// Add hash to comment body
+	if diffHash != "" {
+		hashComment := fmt.Sprintf("\n\n<!-- diffhash:%s -->", diffHash)
+		body += hashComment
 	}
 
+	// Create new comment (never update existing)
 	_, _, err = c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
 		Body: &body,
 	})
 	if err != nil {
 		return fmt.Errorf("create comment: %w", err)
-	}
-
-	if diffHash != "" {
-		if err := c.addDiffHashLabel(ctx, diffHash); err != nil {
-			return fmt.Errorf("add diff hash label: %w", err)
-		}
 	}
 
 	return nil
@@ -312,15 +307,6 @@ func (c *Client) extractDiffHash(body string) string {
 		return ""
 	}
 	return body[start : start+end]
-}
-
-func (c *Client) addDiffHashLabel(ctx context.Context, hash string) error {
-	label := "ai-diff-hash:" + hash[:8]
-	_, _, err := c.ghClient.Issues.AddLabelsToIssue(ctx, c.owner, c.repo, c.prNumber, []string{label})
-	if err != nil {
-		return fmt.Errorf("add label: %w", err)
-	}
-	return nil
 }
 
 // UpdateComment edits an existing comment.
