@@ -149,7 +149,7 @@ runs:
             --heavy-model "${{ inputs.openai_heavy_model }}" \
             --language "${{ inputs.language }}" \
             --openai-base-url "${{ inputs.openai_base_url }}" \
-            --debug \
+            --verbose \
             2>/dev/null | jq -r '.review' || echo "Failed to get response")
           
           # Post response as comment
@@ -164,6 +164,6 @@ runs:
             --system-message '${{ inputs.system_message }}' \
             --language "${{ inputs.language }}" \
             --openai-base-url "${{ inputs.openai_base_url }}" \
-            --debug \
+            --verbose \
             --bot-icon '${{ inputs.bot_icon }}' < ../diff.txt
         fi
