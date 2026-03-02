@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"sort"
+	"strings"
 
 	"github.com/0x0Dx/x/golicense/licenses"
 )
@@ -16,45 +16,58 @@ import (
 var (
 	name    = flag.String("name", "", "Name of the person licensing the software")
 	email   = flag.String("email", "", "Email of the person licensing the software")
-	out     = flag.Bool("out", false, "Write to a file instead of stdout")
-	showAll = flag.Bool("show", false, "show all licenses instead of generating one")
+	out     = flag.Bool("out", false, "Write output to a file instead of stdout")
+	showAll = flag.Bool("show", false, "Show all available licenses")
 )
 
 func init() {
 	flag.Usage = func() {
 		//nolint:gosec
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		//nolint:gosec
-		fmt.Fprintf(os.Stderr, "%s [option] <license kind>\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] <license>\n\n", os.Args[0])
 		flag.PrintDefaults()
-
-		fmt.Fprintf(os.Stderr, "\nBy default the name and email are scraped from `git config`")
+		fmt.Fprintf(os.Stderr, "\nLicense name can be one of: ")
+		names, _ := licenses.List()
+		fmt.Fprintf(os.Stderr, "%s\n", strings.Join(names, ", "))
+		fmt.Fprintf(os.Stderr, "\nIf name/email not provided, they are read from git config.\n")
 		os.Exit(2)
 	}
+}
 
-	names, err := licenses.List()
+// getGitConfig retrieves a value from git config.
+func getGitConfig(key string) string {
+	cmd := exec.Command("git", "config", key)
+	out, err := cmd.Output()
 	if err != nil {
-		log.Fatal(err)
+		return ""
 	}
+	return strings.TrimSpace(string(out))
+}
 
-	sort.Strings(names)
+// getOutputFilename returns the appropriate filename for the given license kind.
+func getOutputFilename(kind string) string {
+	filenames := map[string]string{
+		"unlicense": "UNLICENSE",
+		"sqlite":    "BLESSING",
+	}
+	if name, ok := filenames[kind]; ok {
+		return name
+	}
+	return "LICENSE"
 }
 
 func main() {
 	flag.Parse()
 
 	if *showAll {
-		fmt.Println("Licenses available:")
 		names, err := licenses.List()
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		for _, name := range names {
-			fmt.Println("*", name)
+		fmt.Println("Available licenses:")
+		for _, n := range names {
+			fmt.Printf("  %s\n", n)
 		}
-
-		os.Exit(1)
+		return
 	}
 
 	if len(flag.Args()) != 1 {
@@ -63,49 +76,25 @@ func main() {
 
 	kind := flag.Arg(0)
 
-	outfile := "LICENSE"
-
 	if !licenses.Has(kind) {
-		fmt.Printf("invalid license kind %s\n", kind)
+		fmt.Fprintf(os.Stderr, "invalid license: %s\n", kind)
 		os.Exit(1)
 	}
 
-	if kind == "unlicense" && *out {
-		outfile = "UNLICENSE"
+	author := *name
+	if author == "" {
+		author = getGitConfig("user.name")
 	}
 
-	if kind == "sqlite" && *out {
-		outfile = "BLESSING"
-	}
-
-	if *name == "" {
-		cmd := exec.Command("git", "config", "user.name")
-
-		out, err := cmd.Output()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		myname := string(out)
-		*name = myname[:len(myname)-1]
-	}
-
-	if *email == "" {
-		cmd := exec.Command("git", "config", "user.email")
-
-		out, err := cmd.Output()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		myemail := string(out)
-		*email = myemail[:len(myemail)-1]
+	authorEmail := *email
+	if authorEmail == "" {
+		authorEmail = getGitConfig("user.email")
 	}
 
 	var wr io.Writer
-
 	if *out {
-		fout, err := os.Create(outfile)
+		filename := getOutputFilename(kind)
+		fout, err := os.Create(filename)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -114,14 +103,13 @@ func main() {
 				log.Printf("failed to close output file: %v", err)
 			}
 		}()
-
 		wr = fout
 	} else {
 		wr = os.Stdout
 		defer fmt.Println()
 	}
 
-	if err := licenses.Hydrate(kind, *name, *email, wr); err != nil {
+	if err := licenses.Hydrate(kind, author, authorEmail, wr); err != nil {
 		log.Fatal(err)
 	}
 }
