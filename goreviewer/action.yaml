@@ -106,8 +106,8 @@ runs:
         # Fetch both branches
         git fetch origin $BASE_REF:$BASE_REF $HEAD_REF:$HEAD_REF 2>/dev/null || true
         
-        # Diff main..PR (all changes in PR against main)
-        git diff origin/$BASE_REF...origin/$HEAD_REF --no-color > diff.txt || git diff $BASE_REF...$HEAD_REF --no-color > diff.txt
+        # Diff latest PR commit against main
+        git diff origin/$BASE_REF..origin/$HEAD_REF --no-color > diff.txt || git diff $BASE_REF..$HEAD_REF --no-color > diff.txt
         
         # Debug: show diff stats
         echo "Diff lines: $(wc -l < diff.txt)"
