@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/v70/github"
 )
@@ -30,7 +32,7 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		ghClient:       github.NewClient(nil),
-		IncludePrev:    true,
+		IncludePrev:    false,
 		IncludeHuman:   true,
 		IncludeChecks:  true,
 		IncludeLabels:  true,
@@ -55,57 +57,99 @@ func (c *Client) SetPR(owner, repo string, prNumber int) {
 // FetchContext fetches GitHub context for a PR.
 func (c *Client) FetchContext(ctx context.Context) (Context, error) {
 	var ctxData Context
-	var errs []string
 
 	if c.owner == "" || c.repo == "" || c.prNumber == 0 {
 		return ctxData, nil
 	}
 
+	type result struct {
+		key   string
+		value string
+		err   error
+	}
+
+	ch := make(chan result, 6)
+
+	var wg sync.WaitGroup
+
 	if c.IncludeChecks {
-		if status, err := c.fetchCheckRuns(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("checks: %v", err))
-		} else {
-			ctxData.CheckRuns = status
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			status, err := c.fetchCheckRuns(ctx)
+			ch <- result{"CheckRuns", status, err}
+		}()
 	}
 
 	if c.IncludeLabels {
-		if labels, err := c.fetchLabels(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("labels: %v", err))
-		} else {
-			ctxData.Labels = labels
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			labels, err := c.fetchLabels(ctx)
+			ch <- result{"Labels", labels, err}
+		}()
 	}
 
 	if c.IncludeDesc {
-		if desc, err := c.fetchPRDescription(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("pr desc: %v", err))
-		} else {
-			ctxData.PRDescription = desc
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			desc, err := c.fetchPRDescription(ctx)
+			ch <- result{"PRDescription", desc, err}
+		}()
 	}
 
 	if c.IncludeCommits {
-		if commits, err := c.fetchCommits(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("commits: %v", err))
-		} else {
-			ctxData.Commits = commits
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			commits, err := c.fetchCommits(ctx)
+			ch <- result{"Commits", commits, err}
+		}()
 	}
 
 	if c.IncludePrev {
-		if prev, err := c.fetchPreviousReviews(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("prev reviews: %v", err))
-		} else {
-			ctxData.PreviousReview = prev
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			prev, err := c.fetchPreviousReviews(ctx)
+			ch <- result{"PreviousReview", prev, err}
+		}()
 	}
 
 	if c.IncludeHuman {
-		if comments, err := c.fetchHumanComments(ctx); err != nil {
-			errs = append(errs, fmt.Sprintf("human comments: %v", err))
-		} else {
-			ctxData.HumanComments = comments
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			comments, err := c.fetchHumanComments(ctx)
+			ch <- result{"HumanComments", comments, err}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var errs []string
+	for r := range ch {
+		if r.err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", r.key, r.err))
+			continue
+		}
+		switch r.key {
+		case "CheckRuns":
+			ctxData.CheckRuns = r.value
+		case "Labels":
+			ctxData.Labels = r.value
+		case "PRDescription":
+			ctxData.PRDescription = r.value
+		case "Commits":
+			ctxData.Commits = r.value
+		case "PreviousReview":
+			ctxData.PreviousReview = r.value
+		case "HumanComments":
+			ctxData.HumanComments = r.value
 		}
 	}
 
@@ -232,8 +276,71 @@ func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 	return strings.Join(lines, "\n\n---\n\n"), nil
 }
 
-// PostReview posts a new review comment to the PR.
+// findExistingBotComment finds the most recent comment posted by the bot.
+func (c *Client) findExistingBotComment(ctx context.Context) (*github.IssueComment, error) {
+	comments, _, err := c.ghClient.Issues.ListComments(ctx, c.owner, c.repo, c.prNumber, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list comments: %w", err)
+	}
+
+	// Find the most recent AI Code Review comment
+	for i := len(comments) - 1; i >= 0; i-- {
+		body := comments[i].GetBody()
+		if strings.HasPrefix(body, "## AI Code Review") {
+			return comments[i], nil
+		}
+	}
+
+	return nil, nil
+}
+
+// extractReviewHash extracts the review hash from a comment body if it exists.
+func extractReviewHash(body string) string {
+	re := regexp.MustCompile(`<!-- review-hash: ([a-f0-9]{64}) -->`)
+	matches := re.FindStringSubmatch(body)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// PostReview posts a new review comment to the PR or updates an existing one.
+// It compares the review content hash to avoid posting duplicate reviews.
 func (c *Client) PostReview(ctx context.Context, body string) error {
+	// Check if there's an existing bot comment
+	existingComment, err := c.findExistingBotComment(ctx)
+	if err != nil {
+		// If we can't check for existing comments, just create a new one
+		return c.createNewComment(ctx, body)
+	}
+
+	if existingComment != nil {
+		// Extract hash from existing comment
+		existingHash := extractReviewHash(existingComment.GetBody())
+		newHash := extractReviewHash(body)
+
+		// If hashes match, the content is identical - skip update
+		if existingHash != "" && newHash != "" && existingHash == newHash {
+			// Content is identical, no need to update
+			return nil
+		}
+
+		// Update the existing comment with new content
+		_, _, err := c.ghClient.Issues.EditComment(ctx, c.owner, c.repo, existingComment.GetID(), &github.IssueComment{
+			Body: &body,
+		})
+		if err != nil {
+			return fmt.Errorf("update comment: %w", err)
+		}
+		return nil
+	}
+
+	// No existing comment found, create a new one
+	return c.createNewComment(ctx, body)
+}
+
+// createNewComment creates a new comment on the PR.
+func (c *Client) createNewComment(ctx context.Context, body string) error {
 	_, _, err := c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
 		Body: &body,
 	})

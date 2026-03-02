@@ -33,7 +33,7 @@ inputs:
   openai_model_temperature:
     required: false
     description: "Temperature for model"
-    default: "0.05"
+    default: "0.2"
   openai_retries:
     required: false
     description: "Number of retries"
@@ -66,10 +66,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Checkout
-      uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
     - uses: actions/setup-go@v6.3.0
       with:
         cache: true
@@ -100,8 +96,18 @@ runs:
         PR_NUMBER="${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL="${{ github.repository }}"
         
-        # Use gh pr diff to get the actual PR diff (always uses latest commits)
-        gh pr diff $PR_NUMBER --repo $REPO_FULL --color never > diff.txt
+        # Get base (main) and head (PR) branches
+        BASE_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json baseRefName -q .baseRefName)
+        HEAD_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json headRefName -q .headRefName)
+        HEAD_SHA=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json headRefOid -q .headRefOid)
+        
+        echo "Base: $BASE_REF, Head: $HEAD_REF, SHA: $HEAD_SHA"
+        
+        # Fetch both branches
+        git fetch origin $BASE_REF:$BASE_REF $HEAD_REF:$HEAD_REF 2>/dev/null || true
+        
+        # Diff main..PR (all changes in PR against main)
+        git diff origin/$BASE_REF...origin/$HEAD_REF --no-color > diff.txt || git diff $BASE_REF...$HEAD_REF --no-color > diff.txt
         
         # Debug: show diff stats
         echo "Diff lines: $(wc -l < diff.txt)"
@@ -134,14 +140,16 @@ runs:
           QUESTION=$(echo "$COMMENT_BODY" | sed -e 's/^\/goreviewer//gi' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
           echo "Question: $QUESTION"
           
-          # Run review with diff and post as comment
+          # Run review with question and post as comment
           RESPONSE=$(cat ../diff.txt | ./goreviewer review \
             --pr "$PR_NUMBER" \
             --repo "$REPO_FULL_NAME" \
+            --question "$QUESTION" \
             --light-model "${{ inputs.openai_light_model }}" \
             --heavy-model "${{ inputs.openai_heavy_model }}" \
             --language "${{ inputs.language }}" \
             --openai-base-url "${{ inputs.openai_base_url }}" \
+            --verbose \
             2>/dev/null | jq -r '.review' || echo "Failed to get response")
           
           # Post response as comment
@@ -156,5 +164,6 @@ runs:
             --system-message '${{ inputs.system_message }}' \
             --language "${{ inputs.language }}" \
             --openai-base-url "${{ inputs.openai_base_url }}" \
+            --verbose \
             --bot-icon '${{ inputs.bot_icon }}' < ../diff.txt
         fi

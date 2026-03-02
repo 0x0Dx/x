@@ -69,10 +69,14 @@ func (r *Reviewer) callAPI(ctx context.Context, apiKey, baseURL, referer, model,
 }
 
 func (r *Reviewer) doRequest(ctx context.Context, apiKey, baseURL, referer, model, prompt string, temp float64, maxTokens int) ([]byte, error) {
+	if r.cfg.Debug {
+		fmt.Printf("DEBUG: Sending prompt to AI (first 1000 chars):\n%s\n...\n", prompt[:min(1000, len(prompt))])
+	}
+
 	reqBody := apiRequest{
 		Model: model,
 		Messages: []message{
-			{Role: "user", Content: prompt},
+			{Role: "user", Content: prompt + fmt.Sprintf("\n[Request ID: %d]", time.Now().Unix())},
 		},
 		Temperature: temp,
 		MaxTokens:   maxTokens,
@@ -155,7 +159,11 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
 
+	// Remove any existing footer (in case AI included it)
+	result.Review = stripExistingFooter(result.Review)
+
 	result.Review += buildFooter(r.cfg.BotIcon)
+	result.Review = addReviewHash(result.Review)
 
 	return result, nil
 }

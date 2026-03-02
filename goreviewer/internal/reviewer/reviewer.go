@@ -38,6 +38,7 @@ type Config struct {
 	Language            string
 	BotIcon             string
 	MaxTokens           int
+	Question            string
 }
 
 // ReviewResponse represents the AI review response.
@@ -180,6 +181,49 @@ func (r *Reviewer) RespondToReviewComment(ctx context.Context, req ReviewComment
 	}
 
 	return r.parseSimpleResponse(body)
+}
+
+// AnswerQuestion answers a specific question about the code review.
+func (r *Reviewer) AnswerQuestion(ctx context.Context, diffContent, question string) (ReviewResponse, error) {
+	if diffContent == "" {
+		return errorResponse("No diff content to analyze"), errors.New("empty diff content")
+	}
+
+	if question == "" {
+		return errorResponse("No question provided"), errors.New("empty question")
+	}
+
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return errorResponse("Missing OPENAI_API_KEY environment variable"), errors.New("missing API key")
+	}
+
+	prompt := r.buildQuestionPrompt(diffContent, question)
+
+	repoFull := os.Getenv("REPO_FULL_NAME")
+	referer := fmt.Sprintf("https://github.com/%s", repoFull)
+
+	baseURL := r.cfg.OpenAIBaseURL
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+
+	model := r.selectModel(false)
+	body, err := r.callAPI(ctx, apiKey, baseURL, referer, model, prompt)
+	if err != nil {
+		return errorResponse(fmt.Sprintf("API call failed: %v", err)), err
+	}
+
+	review, err := r.parseSimpleResponse(body)
+	if err != nil {
+		return errorResponse(fmt.Sprintf("failed to parse response: %v", err)), err
+	}
+
+	return ReviewResponse{
+		Review:           review,
+		FailPassWorkflow: "",
+		LabelsAdded:      nil,
+	}, nil
 }
 
 func (r *Reviewer) selectModel(isHeavy bool) string {

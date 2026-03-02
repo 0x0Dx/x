@@ -24,6 +24,7 @@ func NewReviewCmd() *cobra.Command {
 	var language string
 	var openAIBaseURL string
 	var botIcon string
+	var question string
 
 	cmd := &cobra.Command{
 		Use:   "review",
@@ -47,6 +48,7 @@ func NewReviewCmd() *cobra.Command {
 				Language:      language,
 				OpenAIBaseURL: openAIBaseURL,
 				BotIcon:       botIcon,
+				Question:      question,
 			}
 
 			ghClient, err := getGitHubClient(ghToken, prNumber, repoFullName)
@@ -55,7 +57,13 @@ func NewReviewCmd() *cobra.Command {
 			}
 
 			r := reviewer.New(cfg, ghClient)
-			result, err := r.Review(context.Background(), string(diffContent))
+
+			var result reviewer.ReviewResponse
+			if question != "" {
+				result, err = r.AnswerQuestion(context.Background(), string(diffContent), question)
+			} else {
+				result, err = r.Review(context.Background(), string(diffContent))
+			}
 			if err != nil {
 				jsonOut, _ := result.ToJSON()
 				fmt.Println(jsonOut)
@@ -86,6 +94,7 @@ func NewReviewCmd() *cobra.Command {
 	cmd.Flags().StringVar(&language, "language", "en-US", "Response language")
 	cmd.Flags().StringVar(&openAIBaseURL, "openai-base-url", "", "OpenAI base URL")
 	cmd.Flags().StringVar(&botIcon, "bot-icon", "", "Bot icon (emoji only)")
+	cmd.Flags().StringVar(&question, "question", "", "Question about the code review")
 
 	return cmd
 }
