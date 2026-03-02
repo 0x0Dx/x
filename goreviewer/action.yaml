@@ -100,8 +100,18 @@ runs:
         PR_NUMBER="${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL="${{ github.repository }}"
         
-        # Use gh pr diff to get the actual PR diff (always uses latest commits)
-        gh pr diff $PR_NUMBER --repo $REPO_FULL --color never > diff.txt
+        # Get base (main) and head (PR) branches
+        BASE_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json baseRefName -q .baseRefName)
+        HEAD_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json headRefName -q .headRefName)
+        HEAD_SHA=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json headRefOid -q .headRefOid)
+        
+        echo "Base: $BASE_REF, Head: $HEAD_REF, SHA: $HEAD_SHA"
+        
+        # Fetch both branches
+        git fetch origin $BASE_REF:$BASE_REF $HEAD_REF:$HEAD_REF 2>/dev/null || true
+        
+        # Diff main..PR (all changes in PR against main)
+        git diff origin/$BASE_REF...origin/$HEAD_REF --no-color > diff.txt || git diff $BASE_REF...$HEAD_REF --no-color > diff.txt
         
         # Debug: show diff stats
         echo "Diff lines: $(wc -l < diff.txt)"
