@@ -134,10 +134,11 @@ runs:
           QUESTION=$(echo "$COMMENT_BODY" | sed -e 's/^\/goreviewer//gi' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
           echo "Question: $QUESTION"
           
-          # Run review with diff and post as comment
+          # Run review with question and post as comment
           RESPONSE=$(cat ../diff.txt | ./goreviewer review \
             --pr "$PR_NUMBER" \
             --repo "$REPO_FULL_NAME" \
+            --question "$QUESTION" \
             --light-model "${{ inputs.openai_light_model }}" \
             --heavy-model "${{ inputs.openai_heavy_model }}" \
             --language "${{ inputs.language }}" \

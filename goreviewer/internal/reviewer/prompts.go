@@ -129,6 +129,47 @@ func (r *Reviewer) buildReviewCommentPrompt(req ReviewCommentRequest) string {
 	return b.String()
 }
 
+func (r *Reviewer) buildQuestionPrompt(diffContent, question string) string {
+	var b strings.Builder
+
+	systemMsg := r.cfg.SystemMessage
+	if systemMsg == "" {
+		systemMsg = `You are @goreviewer, a helpful AI assistant for code reviews.`
+	}
+
+	lang := r.cfg.Language
+	if lang == "" {
+		lang = defaultLanguage
+	}
+	systemMsg += fmt.Sprintf("\n\nYour entire response must be in the language with ISO code: %s", lang)
+
+	b.WriteString(systemMsg)
+	b.WriteString("\n\n")
+
+	b.WriteString("A user has asked a question about a code review. Please answer their specific question based on the diff provided.\n\n")
+
+	if r.ghClient != nil && r.ghClient.Token != "" {
+		ghCtx, err := r.ghClient.FetchContext(context.Background())
+		if err == nil && ghCtx.PreviousReview != "" {
+			b.WriteString("Previous AI Review for context:\n")
+			b.WriteString(ghCtx.PreviousReview)
+			b.WriteString("\n\n")
+		}
+	}
+
+	b.WriteString("Code diff:\n")
+	b.WriteString(diffContent)
+	b.WriteString("\n\n")
+
+	b.WriteString("User's question: ")
+	b.WriteString(question)
+	b.WriteString("\n\n")
+
+	b.WriteString("Answer the question directly and specifically. If the question refers to something from your previous review, reference it. Be helpful and concise.")
+
+	return b.String()
+}
+
 func (r *Reviewer) addGitHubContext(b *strings.Builder) {
 	ghCtx, err := r.ghClient.FetchContext(context.Background())
 	if err != nil {
