@@ -35,7 +35,3 @@ golicense -show
 - **GPL**: GPL-2, GPL-3, AGPL-3, LGPL-2
 - **Copyleft-ish**: LGPL-2, MPL-2
 - **Weird**: Be Gay Do Crimes, WTFPL, YOLO, BOLA, DWTFAWWI, Hot Potato, Curse of Knowledge
-
-## License
-
-MIT
