@@ -14,6 +14,6 @@
 		"passwd": ""
 	},
 	"repo": {
-		"root_path": "./repositories"
+		"root_path": "/tmp/repositories"
 	}
 }
