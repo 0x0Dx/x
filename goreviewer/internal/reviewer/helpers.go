@@ -110,3 +110,13 @@ func addReviewHash(review string) string {
 	hash := computeReviewHash(review)
 	return review + fmt.Sprintf("\n<!-- review-hash: %s -->", hash)
 }
+
+// stripExistingFooter removes any existing footer from the review content.
+// This prevents duplicate footers if the AI includes one in its response.
+func stripExistingFooter(review string) string {
+	// Find the first occurrence of "---" which typically marks the footer
+	if idx := strings.Index(review, "\n---\n"); idx != -1 {
+		return strings.TrimSpace(review[:idx])
+	}
+	return review
+}

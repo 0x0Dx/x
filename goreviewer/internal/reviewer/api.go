@@ -155,6 +155,8 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
 
+	result.Review = stripExistingFooter(result.Review)
+
 	result.Review += buildFooter(r.cfg.BotIcon)
 	result.Review = addReviewHash(result.Review)
 
