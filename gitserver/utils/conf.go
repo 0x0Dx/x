@@ -11,6 +11,7 @@ type Config struct {
 	App      AppConfig      `json:"app"`
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"database"`
+	Repo     RepoConfig     `json:"repo"`
 }
 
 type AppConfig struct {
@@ -28,6 +29,10 @@ type DatabaseConfig struct {
 	Name   string `json:"name"`
 	User   string `json:"user"`
 	Passwd string `json:"passwd"`
+}
+
+type RepoConfig struct {
+	RootPath string `json:"root_path"`
 }
 
 var Cfg *Config

@@ -58,7 +58,10 @@ func Migrate() error {
 }
 
 func setEngine() {
-	RepoRootPath = "/home/git/repositories"
+	RepoRootPath = utils.Cfg.Repo.RootPath
+	if RepoRootPath == "" {
+		RepoRootPath = "./repositories"
+	}
 	if err := os.MkdirAll(RepoRootPath, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create repo root path: %v\n", err)
 		os.Exit(1)

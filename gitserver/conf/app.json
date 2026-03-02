@@ -12,5 +12,8 @@
 		"name": "git",
 		"user": "root",
 		"passwd": ""
+	},
+	"repo": {
+		"root_path": "./repositories"
 	}
 }
