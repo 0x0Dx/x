@@ -32,7 +32,7 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		ghClient:       github.NewClient(nil),
-		IncludePrev:    true,
+		IncludePrev:    false,
 		IncludeHuman:   true,
 		IncludeChecks:  true,
 		IncludeLabels:  true,
