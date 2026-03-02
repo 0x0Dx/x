@@ -232,7 +232,7 @@ func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 	return strings.Join(lines, "\n\n---\n\n"), nil
 }
 
-// PostReview posts a review comment to the PR.
+// PostReview posts a new review comment to the PR.
 func (c *Client) PostReview(ctx context.Context, body string) error {
 	_, _, err := c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
 		Body: &body,

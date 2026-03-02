@@ -100,12 +100,12 @@ runs:
         PR_NUMBER="${{ steps.get_pr.outputs.PR_NUMBER }}"
         REPO_FULL="${{ github.repository }}"
         
-        # Get base and head refs
-        BASE_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json baseRefName -q .baseRefName)
-        HEAD_REF=$(gh pr view $PR_NUMBER --repo $REPO_FULL --json headRefName -q .headRefName)
+        # Use gh pr diff to get the actual PR diff (always uses latest commits)
+        gh pr diff $PR_NUMBER --repo $REPO_FULL --color never > diff.txt
         
-        git fetch origin $BASE_REF $HEAD_REF
-        git diff origin/$BASE_REF..origin/$HEAD_REF --no-color > diff.txt
+        # Debug: show diff stats
+        echo "Diff lines: $(wc -l < diff.txt)"
+        echo "Diff bytes: $(wc -c < diff.txt)"
         
         # Check if diff is empty
         if [ ! -s diff.txt ]; then
