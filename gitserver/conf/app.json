@@ -1,0 +1,16 @@
+{
+	"app": {
+		"name": "gitserver"
+	},
+	"server": {
+		"http_addr": "",
+		"http_port": "3000"
+	},
+	"database": {
+		"db_type": "mysql",
+		"host": "127.0.0.1:3306",
+		"name": "git",
+		"user": "root",
+		"passwd": ""
+	}
+}
