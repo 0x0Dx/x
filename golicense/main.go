@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+
+	"github.com/0x0Dx/x/golicense/licenses"
 )
 
 var (
