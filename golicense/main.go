@@ -1,3 +1,4 @@
+// Package main provides a CLI tool for generating license files.
 package main
 
 import (
@@ -21,7 +22,9 @@ var (
 
 func init() {
 	flag.Usage = func() {
+		//nolint:gosec
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		//nolint:gosec
 		fmt.Fprintf(os.Stderr, "%s [option] <license kind>\n\n", os.Args[0])
 		flag.PrintDefaults()
 
@@ -106,7 +109,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer fout.Close()
+		defer func() {
+			if err := fout.Close(); err != nil {
+				log.Printf("failed to close output file: %v", err)
+			}
+		}()
 
 		wr = fout
 	} else {

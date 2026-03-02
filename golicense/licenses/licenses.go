@@ -1,7 +1,9 @@
+// Package licenses provides license file templates and generation.
 package licenses
 
 import (
 	"embed"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -10,15 +12,14 @@ import (
 	"time"
 )
 
-var (
-	//go:embed data/*.txt
-	licenses embed.FS
-)
+//go:embed data/*.txt
+var licenses embed.FS
 
+// List returns all available license names.
 func List() ([]string, error) {
 	var result []string
 
-	if err := fs.WalkDir(licenses, "data", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(licenses, "data", func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -33,29 +34,33 @@ func List() ([]string, error) {
 		result = append(result, fname)
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to walk licenses directory: %w", err)
 	}
 
 	return result, nil
 }
 
+// Has returns true if the given license exists.
 func Has(license string) bool {
 	fin, err := licenses.Open("data/" + license + ".txt")
 	if err != nil {
 		return false
 	}
-	defer fin.Close()
+	if err := fin.Close(); err != nil {
+		log.Printf("failed to close license file: %v", err)
+	}
 
 	return true
 }
 
+// Hydrate fills in the template variables for the given license.
 func Hydrate(license, name, email string, sink io.Writer) error {
 	tmpl, err := template.ParseFS(licenses, "data/"+license+".txt")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse license template: %w", err)
 	}
 
-	return tmpl.Execute(sink, struct {
+	if err := tmpl.Execute(sink, struct {
 		Name  string
 		Email string
 		Year  int
@@ -63,5 +68,9 @@ func Hydrate(license, name, email string, sink io.Writer) error {
 		Name:  name,
 		Email: email,
 		Year:  time.Now().Year(),
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to execute license template: %w", err)
+	}
+
+	return nil
 }
