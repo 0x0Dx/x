@@ -61,11 +61,6 @@ func NewRunCmd() *cobra.Command {
 			r := reviewer.New(cfg, ghClient)
 			result, err := r.Review(context.Background(), string(diffContent))
 			if err != nil {
-				if ghClient != nil {
-					if err := ghClient.PostReview(context.Background(), result.Review); err != nil {
-						fmt.Fprintln(os.Stderr, "Warning: failed to post review:", err)
-					}
-				}
 				return fmt.Errorf("review failed: %w", err)
 			}
 
