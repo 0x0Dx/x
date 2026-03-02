@@ -25,7 +25,8 @@ var webCmd = &cobra.Command{
 
 		r.Get("/", routers.Dashboard)
 		r.Get("/user/signin", routers.SignIn)
-		r.Method(http.MethodGet, "/user/signup", http.HandlerFunc(routers.SignUp))
+		r.Post("/user/signin", routers.SignIn)
+		r.Get("/user/signup", routers.SignUp)
 		r.Method(http.MethodPost, "/user/signup", http.HandlerFunc(routers.SignUp))
 
 		listenAddr := fmt.Sprintf("%s:%s",
