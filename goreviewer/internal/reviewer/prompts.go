@@ -205,10 +205,4 @@ func (r *Reviewer) addGitHubContext(b *strings.Builder) {
 		b.WriteString(ghCtx.HumanComments)
 		b.WriteString("\n")
 	}
-
-	if ghCtx.PreviousReview != "" {
-		b.WriteString("\nPrevious AI Review:\n")
-		b.WriteString(ghCtx.PreviousReview)
-		b.WriteString("\n")
-	}
 }
