@@ -5,6 +5,7 @@ Monorepo containing tools.
 ## Projects
 
 - [`cliimage`](./cliimage) Terminal image viewer.
+- [`golicense`](./golicense) License file generator.
 - [`goserv`](./goserv) HTTP file server.
 - [`gitx`](./gitx) Simple git wrapper.
 
@@ -12,6 +13,7 @@ Monorepo containing tools.
  
 ```bash
 go install github.com/0x0Dx/x/cliimage@main
+go install github.com/0x0Dx/x/golicense@main
 go install github.com/0x0Dx/x/goserv@main
 go install github.com/0x0Dx/x/gitx@main
 ```
