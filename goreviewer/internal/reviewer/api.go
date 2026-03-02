@@ -69,6 +69,10 @@ func (r *Reviewer) callAPI(ctx context.Context, apiKey, baseURL, referer, model,
 }
 
 func (r *Reviewer) doRequest(ctx context.Context, apiKey, baseURL, referer, model, prompt string, temp float64, maxTokens int) ([]byte, error) {
+	if r.cfg.Debug {
+		fmt.Printf("DEBUG: Sending prompt to AI (first 1000 chars):\n%s\n...\n", prompt[:min(1000, len(prompt))])
+	}
+
 	reqBody := apiRequest{
 		Model: model,
 		Messages: []message{
