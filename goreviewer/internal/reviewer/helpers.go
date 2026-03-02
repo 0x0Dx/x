@@ -105,16 +105,6 @@ func stripExistingFooter(review string) string {
 	return review
 }
 
-// extractReviewHash extracts the review hash from a comment body if it exists.
-func extractReviewHash(body string) string {
-	re := regexp.MustCompile(`<!-- review-hash: ([a-f0-9]{64}) -->`)
-	matches := re.FindStringSubmatch(body)
-	if len(matches) > 1 {
-		return matches[1]
-	}
-	return ""
-}
-
 // addReviewHash adds a hidden hash comment to the review body for future comparison.
 func addReviewHash(review string) string {
 	hash := computeReviewHash(review)
