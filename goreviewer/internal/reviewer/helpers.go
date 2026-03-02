@@ -95,6 +95,16 @@ func computeReviewHash(review string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// stripExistingFooter removes any existing footer from the review content.
+// This prevents duplicate footers if the AI includes one in its response.
+func stripExistingFooter(review string) string {
+	// Find the first occurrence of "---" which typically marks the footer
+	if idx := strings.Index(review, "\n---\n"); idx != -1 {
+		return strings.TrimSpace(review[:idx])
+	}
+	return review
+}
+
 // extractReviewHash extracts the review hash from a comment body if it exists.
 func extractReviewHash(body string) string {
 	re := regexp.MustCompile(`<!-- review-hash: ([a-f0-9]{64}) -->`)
@@ -109,14 +119,4 @@ func extractReviewHash(body string) string {
 func addReviewHash(review string) string {
 	hash := computeReviewHash(review)
 	return review + fmt.Sprintf("\n<!-- review-hash: %s -->", hash)
-}
-
-// stripExistingFooter removes any existing footer from the review content.
-// This prevents duplicate footers if the AI includes one in its response.
-func stripExistingFooter(review string) string {
-	// Find the first occurrence of "---" which typically marks the footer
-	if idx := strings.Index(review, "\n---\n"); idx != -1 {
-		return strings.TrimSpace(review[:idx])
-	}
-	return review
 }

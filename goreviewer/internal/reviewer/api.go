@@ -155,6 +155,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 		return errorResponse("Missing review field"), errors.New("missing review")
 	}
 
+	// Remove any existing footer (in case AI included it)
 	result.Review = stripExistingFooter(result.Review)
 
 	result.Review += buildFooter(r.cfg.BotIcon)
