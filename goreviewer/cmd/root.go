@@ -12,6 +12,7 @@ var (
 	verbose     bool
 	temperature float64
 	maxTokens   int
+	dummyFlag   bool
 )
 
 const (

@@ -8,6 +8,10 @@ import (
 )
 
 func main() {
+	// Dummy comment for testing
+	dummy := "test"
+	_ = dummy
+
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
