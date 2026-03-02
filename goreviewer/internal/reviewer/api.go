@@ -156,6 +156,7 @@ func (r *Reviewer) parseResponse(body []byte) (ReviewResponse, error) {
 	}
 
 	result.Review += buildFooter(r.cfg.BotIcon)
+	result.Review = addReviewHash(result.Review)
 
 	return result, nil
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -275,8 +276,71 @@ func (c *Client) fetchHumanComments(ctx context.Context) (string, error) {
 	return strings.Join(lines, "\n\n---\n\n"), nil
 }
 
-// PostReview posts a new review comment to the PR.
+// findExistingBotComment finds the most recent comment posted by the bot.
+func (c *Client) findExistingBotComment(ctx context.Context) (*github.IssueComment, error) {
+	comments, _, err := c.ghClient.Issues.ListComments(ctx, c.owner, c.repo, c.prNumber, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list comments: %w", err)
+	}
+
+	// Find the most recent AI Code Review comment
+	for i := len(comments) - 1; i >= 0; i-- {
+		body := comments[i].GetBody()
+		if strings.HasPrefix(body, "## AI Code Review") {
+			return comments[i], nil
+		}
+	}
+
+	return nil, nil
+}
+
+// extractReviewHash extracts the review hash from a comment body if it exists.
+func extractReviewHash(body string) string {
+	re := regexp.MustCompile(`<!-- review-hash: ([a-f0-9]{64}) -->`)
+	matches := re.FindStringSubmatch(body)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// PostReview posts a new review comment to the PR or updates an existing one.
+// It compares the review content hash to avoid posting duplicate reviews.
 func (c *Client) PostReview(ctx context.Context, body string) error {
+	// Check if there's an existing bot comment
+	existingComment, err := c.findExistingBotComment(ctx)
+	if err != nil {
+		// If we can't check for existing comments, just create a new one
+		return c.createNewComment(ctx, body)
+	}
+
+	if existingComment != nil {
+		// Extract hash from existing comment
+		existingHash := extractReviewHash(existingComment.GetBody())
+		newHash := extractReviewHash(body)
+
+		// If hashes match, the content is identical - skip update
+		if existingHash != "" && newHash != "" && existingHash == newHash {
+			// Content is identical, no need to update
+			return nil
+		}
+
+		// Update the existing comment with new content
+		_, _, err := c.ghClient.Issues.EditComment(ctx, c.owner, c.repo, existingComment.GetID(), &github.IssueComment{
+			Body: &body,
+		})
+		if err != nil {
+			return fmt.Errorf("update comment: %w", err)
+		}
+		return nil
+	}
+
+	// No existing comment found, create a new one
+	return c.createNewComment(ctx, body)
+}
+
+// createNewComment creates a new comment on the PR.
+func (c *Client) createNewComment(ctx context.Context, body string) error {
 	_, _, err := c.ghClient.Issues.CreateComment(ctx, c.owner, c.repo, c.prNumber, &github.IssueComment{
 		Body: &body,
 	})
