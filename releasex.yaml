@@ -1,0 +1,48 @@
+project: x
+version: v0.1.2
+
+builds:
+  - id: cliimage
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    main: ./cliimage
+    binary: cliimage
+    ldflags: "-s -w"
+  - id: goserv
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    main: ./goserv
+    binary: goserv
+    ldflags: "-s -w"
+  - id: gitx
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    main: ./gitx
+    binary: gitx
+    ldflags: "-s -w"
+  - id: golicense
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    main: ./golicense
+    binary: golicense
+    ldflags: "-s -w"
+  - id: releasex
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    main: ./releasex
+    binary: releasex
+    ldflags: "-s -w"
+
+archives:
+  - id: default
+    builds: [cliimage, goserv, gitx, golicense, releasex]
+    format: tar.gz
+
+checksums:
+  - ids: [default]
+
+# github:
+#   owner: myorg
+#   repo: myrepo
+#   version: tag
+#   draft: false
