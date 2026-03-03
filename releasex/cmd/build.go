@@ -31,7 +31,12 @@ var buildCmd = &cobra.Command{
 			return fmt.Errorf("failed to create dist dir: %w", err)
 		}
 
-		results, err := builder.Build(cfg, buildDir)
+		projectRoot, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+
+		results, err := builder.Build(cfg, buildDir, projectRoot)
 		if err != nil {
 			return fmt.Errorf("build failed: %w", err)
 		}
