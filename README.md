@@ -8,14 +8,16 @@ Monorepo containing tools.
 - [`golicense`](./golicense) License file generator.
 - [`goserv`](./goserv) HTTP file server.
 - [`gitx`](./gitx) Simple git wrapper.
+- [`releasex`](./releasex) Simple release tool.
 
 ## Installation 
- 
+  
 ```bash
 go install github.com/0x0Dx/x/cliimage@main
 go install github.com/0x0Dx/x/golicense@main
 go install github.com/0x0Dx/x/goserv@main
 go install github.com/0x0Dx/x/gitx@main
+go install github.com/0x0Dx/x/releasex@main
 ```
 
 ## Development
