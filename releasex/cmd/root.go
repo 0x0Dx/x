@@ -3,6 +3,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -25,5 +27,25 @@ func Execute() error {
 }
 
 func init() {
-	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "f", "releasex.yaml", "Config file")
+	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "f", "", "Config file (default: releasex.yaml or ../releasex.yaml)")
+	RootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+		if cfgFile != "" {
+			return nil
+		}
+		if _, err := os.Stat("releasex.yaml"); err == nil {
+			cfgFile = "releasex.yaml"
+			return nil
+		}
+		if _, err := os.Stat("../releasex.yaml"); err == nil {
+			cfgFile = "../releasex.yaml"
+			return nil
+		}
+		return fmt.Errorf("releasex.yaml not found in current or parent directory")
+	}
+}
+
+// GetConfigPath returns the resolved config file path.
+func GetConfigPath() string {
+	abs, _ := filepath.Abs(cfgFile)
+	return abs
 }

@@ -19,7 +19,7 @@ var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Build binaries",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		cfg, err := config.Load(cfgFile)
+		cfg, err := config.Load(GetConfigPath())
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}

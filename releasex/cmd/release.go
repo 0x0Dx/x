@@ -27,7 +27,7 @@ var releaseCmd = &cobra.Command{
 			return fmt.Errorf("build failed: %w", err)
 		}
 
-		cfg, err := config.Load(cfgFile)
+		cfg, err := config.Load(GetConfigPath())
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
