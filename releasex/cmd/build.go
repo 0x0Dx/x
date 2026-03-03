@@ -46,7 +46,7 @@ var buildCmd = &cobra.Command{
 			for _, f := range a.Files {
 				files = append(files, filepath.Join(buildDir, f))
 			}
-			output := filepath.Join(buildDir, cfg.Project+"-"+a.ID+"."+a.Format)
+			output := filepath.Join(buildDir, a.ID+"."+a.Format)
 			if err := archiver.Create(files, a.Format, output); err != nil {
 				return fmt.Errorf("archive failed: %w", err)
 			}
@@ -57,11 +57,11 @@ var buildCmd = &cobra.Command{
 			for _, a := range cfg.Archives {
 				for _, id := range c.IDs {
 					if a.ID == id {
-						files = append(files, filepath.Join(buildDir, cfg.Project+"-"+a.ID+"."+a.Format))
+						files = append(files, filepath.Join(buildDir, a.ID+"."+a.Format))
 					}
 				}
 			}
-			output := filepath.Join(buildDir, cfg.Project+"-"+c.IDs[0]+"-checksums.txt")
+			output := filepath.Join(buildDir, c.IDs[0]+"-checksums.txt")
 			if err := checksums.Generate(files, output, projectRoot); err != nil {
 				return fmt.Errorf("checksums failed: %w", err)
 			}
