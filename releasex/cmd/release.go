@@ -1,16 +1,15 @@
+// Package cmd provides releasex CLI commands.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/0x0Dx/x/releasex/internal/config"
+	"github.com/0x0Dx/x/releasex/internal/github"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +18,7 @@ var (
 	draft       bool
 )
 
+// releaseCmd builds and creates a GitHub release.
 var releaseCmd = &cobra.Command{
 	Use:   "release",
 	Short: "Build and create GitHub release",
@@ -37,14 +37,9 @@ var releaseCmd = &cobra.Command{
 			return nil
 		}
 
-		version := cfg.Version
+		tag := cfg.Version
 		if cfg.GitHub[0].Version == "tag" {
-			version = strings.TrimPrefix(version, "v")
-		}
-
-		tag := cfg.GitHub[0].Version
-		if tag == "tag" {
-			tag = version
+			tag = strings.TrimPrefix(tag, "v")
 			if !strings.HasPrefix(tag, "v") {
 				tag = "v" + tag
 			}
@@ -73,7 +68,7 @@ var releaseCmd = &cobra.Command{
 			if token == "" {
 				return fmt.Errorf("GITHUB_TOKEN not set and gh not found")
 			}
-			if err := createReleaseAPI(token, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft, assets); err != nil {
+			if err := github.CreateRelease(token, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft, assets); err != nil {
 				return fmt.Errorf("API release failed: %w", err)
 			}
 		}
@@ -108,77 +103,6 @@ func createReleaseGH(owner, repo, tag string, draft bool, assets []string) error
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gh command failed: %w", err)
-	}
-	return nil
-}
-
-func createReleaseAPI(token, owner, repo, tag string, draft bool, assets []string) error {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", owner, repo)
-
-	body := fmt.Sprintf(`{"tag_name":"%s","draft":%t,"generate_release_notes":true}`, tag, draft)
-	req, err := http.NewRequest("POST", url, strings.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	//nolint:gosec // G704: false positive - hardcoded GitHub API URL
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 201 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status: %s %s", resp.Status, string(b))
-	}
-
-	var result struct {
-		ID int `json:"id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	for _, path := range assets {
-		if err := uploadAssetAPI(token, owner, repo, result.ID, path); err != nil {
-			return fmt.Errorf("upload failed: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func uploadAssetAPI(token, owner, repo string, releaseID int, path string) error {
-	name := filepath.Base(path)
-	url := fmt.Sprintf("https://uploads.github.com/repos/%s/%s/releases/%d/assets?name=%s", owner, repo, releaseID, name)
-
-	file, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer func() { _ = file.Close() }()
-
-	//nolint:gosec // G704: false positive - hardcoded GitHub API URL
-	req, err := http.NewRequest("POST", url, file)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/octet-stream")
-
-	//nolint:gosec // G704: false positive - hardcoded GitHub API URL
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 201 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("upload failed: %s %s", resp.Status, string(b))
 	}
 	return nil
 }
