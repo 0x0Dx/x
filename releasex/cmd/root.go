@@ -27,20 +27,22 @@ func Execute() error {
 }
 
 func init() {
-	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "f", "", "Config file (default: releasex.yaml or ../releasex.yaml)")
+	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "f", "", "Config file (default: ReleaseX.yaml)")
 	RootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
 		if cfgFile != "" {
 			return nil
 		}
-		if _, err := os.Stat("releasex.yaml"); err == nil {
-			cfgFile = "releasex.yaml"
-			return nil
+		cfgFiles := []string{"ReleaseX.yaml", "releasex.yaml"}
+		for _, dir := range []string{".", ".."} {
+			for _, name := range cfgFiles {
+				path := filepath.Join(dir, name)
+				if _, err := os.Stat(path); err == nil {
+					cfgFile = path
+					return nil
+				}
+			}
 		}
-		if _, err := os.Stat("../releasex.yaml"); err == nil {
-			cfgFile = "../releasex.yaml"
-			return nil
-		}
-		return fmt.Errorf("releasex.yaml not found in current or parent directory")
+		return fmt.Errorf("config file not found (tried ReleaseX.yaml, releasex.yaml)")
 	}
 }
 

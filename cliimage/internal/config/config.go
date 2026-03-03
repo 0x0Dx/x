@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/0x0Dx/x/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +59,7 @@ func init() {
 
 // Execute runs the root cobra command.
 func Execute() error {
-	if err := lib.Run(RootCmd); err != nil {
+	if err := RootCmd.Execute(); err != nil {
 		return fmt.Errorf("failed to execute: %w", err)
 	}
 	return nil
