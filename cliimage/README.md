@@ -11,7 +11,7 @@ go install github.com/0x0Dx/x/cliimage@main
 ## Usage
 
 ```bash
-cliimage -i image.png
+cliimage render -i image.png
 ```
 
 ## Options
@@ -33,17 +33,17 @@ cliimage -i image.png
 
 ```bash
 # Render image with default settings
-cliimage -i photo.jpg
+cliimage render -i photo.jpg
 
 # Render with custom width
-cliimage -i photo.jpg -w 100
+cliimage render -i photo.jpg -w 100
 
 # Use quarter blocks for higher resolution
-cliimage -i photo.jpg -p quarter
+cliimage render -i photo.jpg -p quarter
 
 # Apply dithering
-cliimage -i photo.jpg -d
+cliimage render -i photo.jpg -d
 
 # Save to file
-cliimage -i photo.jpg -o output.txt
+cliimage render -i photo.jpg -o output.txt
 ```
