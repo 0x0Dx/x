@@ -14,6 +14,7 @@ import (
 
 var buildDir string
 
+// buildCmd builds binaries.
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Build binaries",

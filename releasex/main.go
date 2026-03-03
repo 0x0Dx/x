@@ -1,3 +1,4 @@
+// releasex is a simple release tool for Go projects.
 package main
 
 import (

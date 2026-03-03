@@ -1,3 +1,4 @@
+// Package builder builds Go binaries for multiple platforms.
 package builder
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/0x0Dx/x/releasex/internal/config"
 )
 
+// Result contains the result of a build.
 type Result struct {
 	Path     string
 	GoOS     string
@@ -16,6 +18,7 @@ type Result struct {
 	Checksum string
 }
 
+// Build builds all binaries defined in the config.
 func Build(cfg *config.Config, dir, version, projectRoot string) ([]Result, error) {
 	var results []Result
 

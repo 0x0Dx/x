@@ -1,3 +1,4 @@
+// Package checksums generates SHA256 checksums for files.
 package checksums
 
 import (
@@ -10,10 +11,11 @@ import (
 	"strings"
 )
 
+// Generate creates a checksums file for the given files.
 func Generate(files []string, output, basePath string) error {
 	f, err := os.Create(output)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create %s: %w", output, err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -21,7 +23,7 @@ func Generate(files []string, output, basePath string) error {
 	for _, file := range files {
 		hash, err := fileHash(file)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to hash %s: %w", file, err)
 		}
 		relPath := file
 		if absFile, err := filepath.Abs(file); err == nil {
@@ -39,13 +41,13 @@ func Generate(files []string, output, basePath string) error {
 func fileHash(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to open %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to hash %s: %w", path, err)
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil

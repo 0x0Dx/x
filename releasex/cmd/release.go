@@ -123,6 +123,7 @@ func createReleaseAPI(token, owner, repo, tag string, draft bool, assets []strin
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
+	//nolint:gosec // G704: false positive - hardcoded GitHub API URL
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
@@ -160,6 +161,7 @@ func uploadAssetAPI(token, owner, repo string, releaseID int, path string) error
 	}
 	defer func() { _ = file.Close() }()
 
+	//nolint:gosec // G704: false positive - hardcoded GitHub API URL
 	req, err := http.NewRequest("POST", url, file)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -167,6 +169,7 @@ func uploadAssetAPI(token, owner, repo string, releaseID int, path string) error
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/octet-stream")
 
+	//nolint:gosec // G704: false positive - hardcoded GitHub API URL
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
