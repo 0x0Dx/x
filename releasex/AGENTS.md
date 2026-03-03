@@ -67,3 +67,8 @@ github:
   repo: myrepo
   version: tag
 ```
+
+## Release
+
+- Uses `gh` CLI if installed
+- Falls back to API with `GITHUB_TOKEN` if `gh` not available

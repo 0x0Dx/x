@@ -76,4 +76,5 @@ builds:
 
 ## Environment
 
-- `GITHUB_TOKEN` - GitHub token for releases (or use `--token` flag)
+- `GITHUB_TOKEN` - GitHub token for API releases (optional if `gh` is installed)
+- Uses `gh` CLI if available, otherwise falls back to API
