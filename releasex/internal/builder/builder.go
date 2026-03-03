@@ -83,7 +83,7 @@ func buildOne(b config.Build, goos, goarch, version, dir, projectRoot string) (R
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	fmt.Printf("Building %s/%s...\n", goos, goarch)
+	fmt.Printf("Building %s for %s/%s...\n", b.ID, goos, goarch)
 
 	if err := cmd.Run(); err != nil {
 		return Result{}, fmt.Errorf("build failed for %s/%s: %w", goos, goarch, err)
