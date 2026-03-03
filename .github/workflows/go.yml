@@ -40,7 +40,11 @@ jobs:
       - name: Run base linters for all packages
         run: $HOME/go/bin/task lint
       - name: Build all binaries
-        run: $HOME/go/bin/task build
+        run: |
+          cd ./releasex
+          go build .
+          cd ..
+          ./releasex/releasex build
       - name: Run tests for all packages
         run: $HOME/go/bin/task test
         
