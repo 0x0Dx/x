@@ -3,10 +3,11 @@
 ## Overview
 
 This is a Go monorepo containing multiple CLI tools:
-- **goreviewer** - AI-powered code reviewer
-- **cliimage** - CLI image processing tool
+- **cliimage** - Terminal image viewer
+- **golicense** - License file generator
 - **gitx** - Opinionated git wrapper
 - **goserv** - Simple HTTP server
+- **releasex** - Simple release tool (goreleaser-like)
 
 ## Build Commands
 
@@ -14,19 +15,18 @@ This is a Go monorepo containing multiple CLI tools:
 ```bash
 task --list                    # List all available tasks
 task check                    # Run fmt, lint, test
-task build                    # Build all binaries to ./bin
-task install                  # Install to $GOPATH/bin
-task tidy                     # Run go mod tidy
-task fmt                      # Run gofumpt
-task lint                     # Run golangci-lint
-task lint:fix                 # Run linters with auto-fix
-task test                     # Run tests
+task install                  # Install all binaries to $GOPATH/bin
+task tidy                    # Run go mod tidy
+task fmt                     # Run gofumpt
+task lint                    # Run golangci-lint
+task lint:fix                # Run linters with auto-fix
+task test                    # Run tests
 ```
 
 ### Direct Go Commands
 ```bash
 # Build specific project
-cd <project> && go build .
+cd <project> && go build -o ./bin/<name> .
 
 # Run tests
 cd <project> && go test ./...
@@ -108,12 +108,8 @@ This project uses golangci-lint with these rules:
 ### Git Conventions
 - Branch naming: `feat/...`, `fix/...`, `docs/...`
 - Commit messages: lowercase imperative ("add feature", not "added feature")
+- Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `lint:`
 - PR titles: same style as commits
-
-### Docker
-- Multi-stage builds
-- Distroless or alpine base images
-- Build with CGO_ENABLED=0 for static binaries
 
 ## Project Structure
 
@@ -125,16 +121,31 @@ This project uses golangci-lint with these rules:
 │   └── <feature>/
 ├── *.go              # Root-level packages
 ├── go.mod
-└── README.md
+├── README.md
+└── AGENTS.md        # This file
 ```
 
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Build | `task build` |
+| Build | `cd <project> && go build -o ./bin/<name> .` |
 | Test | `task test` |
 | Test (single) | `go test -v -run TestX ./...` |
 | Lint | `task lint` |
 | Format | `task fmt` |
 | Check all | `task check` |
+
+## releasex
+
+This monorepo uses **releasex** for building and releasing:
+
+```bash
+# Build all projects
+releasex build
+
+# Build and create GitHub release
+releasex release
+```
+
+See `releasex/README.md` for full documentation.
