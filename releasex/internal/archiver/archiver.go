@@ -2,6 +2,7 @@
 package archiver
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
 	"fmt"
@@ -71,22 +72,23 @@ func createTarGz(files []string, output string) error {
 	gw := gzip.NewWriter(out)
 	defer func() { _ = gw.Close() }()
 
+	tw := tar.NewWriter(gw)
+	defer func() { _ = tw.Close() }()
+
 	for _, f := range files {
 		info, err := os.Stat(f)
 		if err != nil {
 			return fmt.Errorf("failed to stat %s: %w", f, err)
 		}
 
-		header, err := zip.FileInfoHeader(info)
+		header, err := tar.FileInfoHeader(info, "")
 		if err != nil {
 			return fmt.Errorf("failed to create header for %s: %w", f, err)
 		}
 		header.Name = filepath.Base(f)
-		header.Method = zip.Deflate
 
-		writer, err := zip.NewWriter(gw).CreateHeader(header)
-		if err != nil {
-			return fmt.Errorf("failed to create header in tar: %w", err)
+		if err := tw.WriteHeader(header); err != nil {
+			return fmt.Errorf("failed to write header: %w", err)
 		}
 
 		reader, err := os.Open(f)
@@ -95,7 +97,7 @@ func createTarGz(files []string, output string) error {
 		}
 		defer func() { _ = reader.Close() }()
 
-		if _, err := io.Copy(writer, reader); err != nil {
+		if _, err := io.Copy(tw, reader); err != nil {
 			return fmt.Errorf("failed to copy %s: %w", f, err)
 		}
 	}
