@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/0x0Dx/x/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -18,9 +19,8 @@ var RootCmd = &cobra.Command{
 
 // Execute runs the root command.
 func Execute() error {
-	err := RootCmd.Execute()
-	if err != nil {
-		return fmt.Errorf("failed to execute root command: %w", err)
+	if err := lib.Run(RootCmd); err != nil {
+		return fmt.Errorf("failed to execute: %w", err)
 	}
 	return nil
 }

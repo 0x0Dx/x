@@ -8,7 +8,6 @@ linters:
     - goconst
     - godot
     - godox  
-    - gomoddirectives
     - goprintffuncname
     - gosec
     - misspell
@@ -32,6 +31,11 @@ linters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+    - path: go.mod
+      linters:
+        - gomoddirectives
+      text: "local replacement are not allowed"
 formatters:
   enable:
     - gofumpt
