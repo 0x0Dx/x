@@ -11,8 +11,8 @@ go install github.com/0x0Dx/x/releasex@main
 ## Quick Start
 
 ```bash
-releasex init           # Create releasex.yaml
-releasex build          # Build binaries to ./dist
+releasex init          # Create releasex.yaml
+releasex build         # Build binaries to ./dist
 releasex release       # Build and create GitHub release
 ```
 

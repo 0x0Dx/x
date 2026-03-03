@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -36,14 +37,7 @@ var releaseCmd = &cobra.Command{
 			return nil
 		}
 
-		token := githubToken
-		if token == "" {
-			token = os.Getenv("GITHUB_TOKEN")
-		}
-		if token == "" {
-			return fmt.Errorf("GITHUB_TOKEN not set")
-		}
-
+		gh := findGH()
 		version := cfg.Version
 		if cfg.GitHub[0].Version == "tag" {
 			version = strings.TrimPrefix(version, "v")
@@ -57,21 +51,31 @@ var releaseCmd = &cobra.Command{
 			}
 		}
 
-		releaseID, err := createRelease(token, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft)
-		if err != nil {
-			return fmt.Errorf("failed to create release: %w", err)
-		}
-
-		// Upload assets
 		files, _ := os.ReadDir(buildDir)
+		var assets []string
 		for _, f := range files {
 			if f.IsDir() {
 				continue
 			}
-			path := filepath.Join(buildDir, f.Name())
-			fmt.Printf("Uploading %s...\n", f.Name())
-			if err := uploadAsset(token, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, releaseID, path); err != nil {
-				return fmt.Errorf("failed to upload %s: %w", f.Name(), err)
+			assets = append(assets, filepath.Join(buildDir, f.Name()))
+		}
+
+		if gh != nil {
+			fmt.Println("Using gh CLI for release...")
+			if err := createReleaseGH(gh, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft, assets); err != nil {
+				return fmt.Errorf("gh release failed: %w", err)
+			}
+		} else {
+			fmt.Println("Using API for release...")
+			token := githubToken
+			if token == "" {
+				token = os.Getenv("GITHUB_TOKEN")
+			}
+			if token == "" {
+				return fmt.Errorf("GITHUB_TOKEN not set and gh not found")
+			}
+			if err := createReleaseAPI(token, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft, assets); err != nil {
+				return fmt.Errorf("API release failed: %w", err)
 			}
 		}
 
@@ -86,7 +90,31 @@ func init() {
 	releaseCmd.Flags().BoolVar(&draft, "draft", false, "Create draft release")
 }
 
-func createRelease(token, owner, repo, tag string, draft bool) (string, error) {
+func findGH() *exec.Cmd {
+	cmd := exec.Command("gh", "--version")
+	if cmd.Run() != nil {
+		return nil
+	}
+	return exec.Command("gh")
+}
+
+func createReleaseGH(gh *exec.Cmd, owner, repo, tag string, draft bool, assets []string) error {
+	args := []string{"release", "create", tag}
+	if draft {
+		args = append(args, "--draft")
+	}
+	args = append(args, "--generate-notes")
+	args = append(args, assets...)
+
+	gh.Dir = ""
+	gh.Args = args
+	gh.Stdout = os.Stdout
+	gh.Stderr = os.Stderr
+
+	return gh.Run()
+}
+
+func createReleaseAPI(token, owner, repo, tag string, draft bool, assets []string) error {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", owner, repo)
 
 	body := fmt.Sprintf(`{"tag_name":"%s","draft":%t,"generate_release_notes":true}`, tag, draft)
@@ -96,25 +124,32 @@ func createRelease(token, owner, repo, tag string, draft bool) (string, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("unexpected status: %s %s", resp.Status, string(b))
+		return fmt.Errorf("unexpected status: %s %s", resp.Status, string(b))
 	}
 
 	var result struct {
 		ID int `json:"id"`
 	}
 	json.NewDecoder(resp.Body).Decode(&result)
-	return fmt.Sprintf("%d", result.ID), nil
+
+	for _, path := range assets {
+		if err := uploadAssetAPI(token, owner, repo, result.ID, path); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func uploadAsset(token, owner, repo, releaseID, path string) error {
+func uploadAssetAPI(token, owner, repo string, releaseID int, path string) error {
 	name := filepath.Base(path)
-	url := fmt.Sprintf("https://uploads.github.com/repos/%s/%s/releases/%s/assets?name=%s", owner, repo, releaseID, name)
+	url := fmt.Sprintf("https://uploads.github.com/repos/%s/%s/releases/%d/assets?name=%s", owner, repo, releaseID, name)
 
 	file, err := os.Open(path)
 	if err != nil {
