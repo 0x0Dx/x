@@ -9,7 +9,7 @@ import (
 )
 
 // Run executes the given cobra command and handles errors.
-func Run(cmd *cobra.Command, args []string) error {
+func Run(cmd *cobra.Command) error {
 	if err := cmd.Execute(); err != nil {
 		return fmt.Errorf("failed to execute: %w", err)
 	}
