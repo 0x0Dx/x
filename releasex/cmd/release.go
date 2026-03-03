@@ -37,7 +37,6 @@ var releaseCmd = &cobra.Command{
 			return nil
 		}
 
-		gh := findGH()
 		version := cfg.Version
 		if cfg.GitHub[0].Version == "tag" {
 			version = strings.TrimPrefix(version, "v")
@@ -60,9 +59,9 @@ var releaseCmd = &cobra.Command{
 			assets = append(assets, filepath.Join(buildDir, f.Name()))
 		}
 
-		if gh != nil {
+		if findGH() {
 			fmt.Println("Using gh CLI for release...")
-			if err := createReleaseGH(gh, cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft, assets); err != nil {
+			if err := createReleaseGH(cfg.GitHub[0].Owner, cfg.GitHub[0].Repo, tag, draft, assets); err != nil {
 				return fmt.Errorf("gh release failed: %w", err)
 			}
 		} else {
@@ -90,28 +89,24 @@ func init() {
 	releaseCmd.Flags().BoolVar(&draft, "draft", false, "Create draft release")
 }
 
-func findGH() *exec.Cmd {
+func findGH() bool {
 	cmd := exec.Command("gh", "--version")
-	if cmd.Run() != nil {
-		return nil
-	}
-	return exec.Command("gh")
+	return cmd.Run() == nil
 }
 
-func createReleaseGH(gh *exec.Cmd, owner, repo, tag string, draft bool, assets []string) error {
-	args := []string{"release", "create", tag}
+func createReleaseGH(owner, repo, tag string, draft bool, assets []string) error {
+	args := []string{"release", "create", tag, "-R", owner + "/" + repo}
 	if draft {
 		args = append(args, "--draft")
 	}
 	args = append(args, "--generate-notes")
 	args = append(args, assets...)
 
-	gh.Dir = ""
-	gh.Args = args
-	gh.Stdout = os.Stdout
-	gh.Stderr = os.Stderr
+	cmd := exec.Command("gh", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	return gh.Run()
+	return cmd.Run()
 }
 
 func createReleaseAPI(token, owner, repo, tag string, draft bool, assets []string) error {

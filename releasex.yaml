@@ -1,5 +1,5 @@
 project: x
-version: v0.1.3
+version: v0.1.4
 
 builds:
   - id: cliimage
@@ -41,8 +41,8 @@ archives:
 checksums:
   - ids: [default]
 
-# github:
-#   owner: myorg
-#   repo: myrepo
-#   version: tag
-#   draft: false
+github:
+  - owner: 0x0Dx
+    repo: x
+    version: tag
+    draft: false
