@@ -8,12 +8,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Run executes the given cobra command and handles errors.
+// Run executes the given cobra command.
 func Run(cmd *cobra.Command) error {
-	if err := cmd.Execute(); err != nil {
-		return fmt.Errorf("failed to execute: %w", err)
-	}
-	return nil
+	return cmd.Execute()
 }
 
 // MustGetEnv returns an environment variable or exits with an error.
