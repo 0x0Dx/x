@@ -15,7 +15,7 @@ func Generate(files []string, output, basePath string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	absBase, _ := filepath.Abs(basePath)
 	for _, file := range files {
@@ -25,11 +25,11 @@ func Generate(files []string, output, basePath string) error {
 		}
 		relPath := file
 		if absFile, err := filepath.Abs(file); err == nil {
-			if strings.HasPrefix(absFile, absBase+"/") {
-				relPath = strings.TrimPrefix(absFile, absBase+"/")
+			if after, ok := strings.CutPrefix(absFile, absBase+"/"); ok {
+				relPath = after
 			}
 		}
-		fmt.Fprintf(f, "%s  %s\n", hash, relPath)
+		_, _ = fmt.Fprintf(f, "%s  %s\n", hash, relPath)
 	}
 
 	fmt.Printf("Created checksums: %s\n", output)
@@ -41,7 +41,7 @@ func fileHash(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {

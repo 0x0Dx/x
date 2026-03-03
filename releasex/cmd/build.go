@@ -27,7 +27,7 @@ var buildCmd = &cobra.Command{
 			buildDir = "dist"
 		}
 
-		if err := os.MkdirAll(buildDir, 0o755); err != nil {
+		if err := os.MkdirAll(buildDir, 0o750); err != nil {
 			return fmt.Errorf("failed to create dist dir: %w", err)
 		}
 
@@ -42,7 +42,7 @@ var buildCmd = &cobra.Command{
 		}
 
 		for _, a := range cfg.Archives {
-			files := findBuildFiles(results, a.Builds)
+			files := extractPaths(results)
 			for _, f := range a.Files {
 				files = append(files, filepath.Join(buildDir, f))
 			}
@@ -77,26 +77,10 @@ func init() {
 	buildCmd.Flags().StringVarP(&buildDir, "dir", "d", "", "Output directory")
 }
 
-func findBuildFiles(results []builder.Result, ids []string) []string {
-	var files []string
+func extractPaths(results []builder.Result) []string {
+	files := make([]string, 0, len(results))
 	for _, r := range results {
 		files = append(files, r.Path)
 	}
 	return files
-}
-
-func findArchiveFiles(_ []builder.Result, _ []string, archives []config.Archive, project string) []string {
-	var files []string
-	for _, a := range archives {
-		files = append(files, filepath.Join(buildDir, project+"-"+a.ID+"."+a.Format))
-	}
-	return files
-}
-
-func extractPaths(results []builder.Result) []string {
-	var paths []string
-	for _, r := range results {
-		paths = append(paths, r.Path)
-	}
-	return paths
 }

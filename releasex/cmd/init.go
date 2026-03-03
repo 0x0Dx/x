@@ -38,7 +38,7 @@ checksums:
 #   draft: false
 `
 
-		if err := os.WriteFile("releasex.yaml", []byte(content), 0o644); err != nil {
+		if err := os.WriteFile("releasex.yaml", []byte(content), 0o600); err != nil {
 			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}

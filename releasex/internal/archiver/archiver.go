@@ -22,10 +22,10 @@ func createZip(files []string, output string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	w := zip.NewWriter(out)
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	for _, f := range files {
 		info, err := os.Stat(f)
@@ -48,7 +48,7 @@ func createZip(files []string, output string) error {
 		if err != nil {
 			return err
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		if _, err := io.Copy(writer, reader); err != nil {
 			return err
@@ -64,10 +64,10 @@ func createTarGz(files []string, output string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	gw := gzip.NewWriter(out)
-	defer gw.Close()
+	defer func() { _ = gw.Close() }()
 
 	for _, f := range files {
 		info, err := os.Stat(f)
@@ -91,7 +91,7 @@ func createTarGz(files []string, output string) error {
 		if err != nil {
 			return err
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		if _, err := io.Copy(writer, reader); err != nil {
 			return err

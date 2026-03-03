@@ -24,7 +24,7 @@ var releaseCmd = &cobra.Command{
 	Short: "Build and create GitHub release",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		if err := buildCmd.RunE(buildCmd, nil); err != nil {
-			return err
+			return fmt.Errorf("build failed: %w", err)
 		}
 
 		cfg, err := config.Load(cfgFile)
@@ -106,22 +106,28 @@ func createReleaseGH(owner, repo, tag string, draft bool, assets []string) error
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("gh command failed: %w", err)
+	}
+	return nil
 }
 
 func createReleaseAPI(token, owner, repo, tag string, draft bool, assets []string) error {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", owner, repo)
 
 	body := fmt.Sprintf(`{"tag_name":"%s","draft":%t,"generate_release_notes":true}`, tag, draft)
-	req, _ := http.NewRequest("POST", url, strings.NewReader(body))
+	req, err := http.NewRequest("POST", url, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
@@ -131,11 +137,13 @@ func createReleaseAPI(token, owner, repo, tag string, draft bool, assets []strin
 	var result struct {
 		ID int `json:"id"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
 
 	for _, path := range assets {
 		if err := uploadAssetAPI(token, owner, repo, result.ID, path); err != nil {
-			return err
+			return fmt.Errorf("upload failed: %w", err)
 		}
 	}
 
@@ -148,19 +156,22 @@ func uploadAssetAPI(token, owner, repo string, releaseID int, path string) error
 
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
-	req, _ := http.NewRequest("POST", url, file)
+	req, err := http.NewRequest("POST", url, file)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/octet-stream")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		b, _ := io.ReadAll(resp.Body)
