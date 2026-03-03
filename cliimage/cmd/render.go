@@ -1,3 +1,4 @@
+// Package cmd provides CLI commands for cliimage.
 package cmd
 
 import (
@@ -7,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
+	_ "image/gif"  // Register GIF format decoders.
+	_ "image/jpeg" // Register JPEG format decoders.
+	_ "image/png"  // Register PNG format decoders.
 
 	"github.com/0x0Dx/x/cliimage/internal/renderer"
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ func init() {
 	}
 }
 
-func runRender(cmd *cobra.Command, args []string) error {
+func runRender(_ *cobra.Command, _ []string) error {
 	file := openInputFile(cfg.InputFile)
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -53,7 +54,7 @@ func runRender(cmd *cobra.Command, args []string) error {
 	img, format, err := image.Decode(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error decoding image: %v\n", err)
-		return err
+		return fmt.Errorf("failed to decode image: %w", err)
 	}
 
 	if cfg.Width == 0 {
@@ -81,7 +82,7 @@ func runRender(cmd *cobra.Command, args []string) error {
 		//nolint:gosec // G703: false positive - path is cleaned by filepath.Clean
 		if err := os.WriteFile(outputPath, []byte(result), 0o600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
-			return err
+			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("Successfully converted %s (%s format) to %s\n", cfg.InputFile, format, outputPath)
 	} else {

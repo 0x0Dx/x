@@ -12,13 +12,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RootCmd is the root command for the cliimage CLI.
 var RootCmd = &cobra.Command{
 	Use:   "cliimage",
 	Short: "Terminal image viewer",
 }
 
+// Execute runs the root command.
 func Execute() error {
-	return RootCmd.Execute()
+	if err := RootCmd.Execute(); err != nil {
+		return fmt.Errorf("failed to execute root command: %w", err)
+	}
+	return nil
 }
 
 func getTerminalWidth() int {
