@@ -16,13 +16,13 @@ type Result struct {
 	Checksum string
 }
 
-func Build(cfg *config.Config, dir, projectRoot string) ([]Result, error) {
+func Build(cfg *config.Config, dir, version, projectRoot string) ([]Result, error) {
 	var results []Result
 
 	for _, b := range cfg.Builds {
 		for _, goos := range b.GoOS {
 			for _, goarch := range b.GoArch {
-				r, err := buildOne(b, goos, goarch, dir, projectRoot)
+				r, err := buildOne(b, goos, goarch, version, dir, projectRoot)
 				if err != nil {
 					return nil, err
 				}
@@ -34,13 +34,14 @@ func Build(cfg *config.Config, dir, projectRoot string) ([]Result, error) {
 	return results, nil
 }
 
-func buildOne(b config.Build, goos, goarch, dir, projectRoot string) (Result, error) {
+func buildOne(b config.Build, goos, goarch, version, dir, projectRoot string) (Result, error) {
 	binName := filepath.Base(b.Binary)
+	ext := ""
 	if goos == "windows" {
-		binName += ".exe"
+		ext = ".exe"
 	}
 
-	output := filepath.Join(projectRoot, dir, goos+"_"+goarch+"_"+binName)
+	output := filepath.Join(projectRoot, dir, binName+"-"+version+"-"+goos+"-"+goarch+ext)
 
 	mainPath := b.Main
 	if mainPath == "" {

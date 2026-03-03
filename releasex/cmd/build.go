@@ -36,7 +36,7 @@ var buildCmd = &cobra.Command{
 			return fmt.Errorf("failed to get working directory: %w", err)
 		}
 
-		results, err := builder.Build(cfg, buildDir, projectRoot)
+		results, err := builder.Build(cfg, buildDir, cfg.Version, projectRoot)
 		if err != nil {
 			return fmt.Errorf("build failed: %w", err)
 		}
@@ -53,12 +53,16 @@ var buildCmd = &cobra.Command{
 		}
 
 		for _, c := range cfg.Checksums {
-			files := findArchiveFiles(results, c.IDs, cfg.Archives, cfg.Project)
-			if len(files) == 0 {
-				files = extractPaths(results)
+			files := extractPaths(results)
+			for _, a := range cfg.Archives {
+				for _, id := range c.IDs {
+					if a.ID == id {
+						files = append(files, filepath.Join(buildDir, cfg.Project+"-"+a.ID+"."+a.Format))
+					}
+				}
 			}
 			output := filepath.Join(buildDir, cfg.Project+"-"+c.IDs[0]+"-checksums.txt")
-			if err := checksums.Generate(files, output); err != nil {
+			if err := checksums.Generate(files, output, projectRoot); err != nil {
 				return fmt.Errorf("checksums failed: %w", err)
 			}
 		}

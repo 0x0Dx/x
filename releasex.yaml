@@ -1,5 +1,5 @@
 project: x
-version: v0.1.4
+version: v0.1.3
 
 builds:
   - id: cliimage
@@ -39,7 +39,7 @@ archives:
     format: tar.gz
 
 checksums:
-  - ids: [default]
+  - ids: [default, cliimage, goserv, gitx, golicense, releasex]
 
 github:
   - owner: 0x0Dx
