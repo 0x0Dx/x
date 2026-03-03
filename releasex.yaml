@@ -34,12 +34,28 @@ builds:
     ldflags: "-s -w"
 
 archives:
-  - id: default
+  - id: _main
     builds: [cliimage, goserv, gitx, golicense, releasex]
+    format: tar.gz
+  - id: _cliimage
+    builds: [cliimage]
+    format: tar.gz
+  - id: _goserv
+    builds: [goserv]
+    format: tar.gz
+  - id: _gitx
+    builds: [gitx]
+    format: tar.gz
+  - id: _golicense
+    builds: [golicense]
+    format: tar.gz
+  - id: _releasex
+    builds: [releasex]
     format: tar.gz
 
 checksums:
-  - ids: [default, cliimage, goserv, gitx, golicense, releasex]
+  - ids: [_main, _cliimage, _goserv, _gitx, _golicense, _releasex,
+          cliimage, goserv, gitx, golicense, releasex]
 
 github:
   - owner: 0x0Dx
