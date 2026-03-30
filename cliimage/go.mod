@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/image v0.36.0
+	golang.org/x/image v0.38.0
 )
 
 require (
